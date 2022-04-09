@@ -1,4 +1,5 @@
-.login {
+.login,
+.signup {
   background: #ffffff;
   height: 100%;
   width: 100%;
@@ -11,7 +12,7 @@
     justify-content: center;
     .roshanimg {
       position: absolute;
-      left: 25.78%;
+      left: 25.49%;
       right: 0;
       top: 0;
       /* bottom: -117.33%; */
@@ -44,16 +45,23 @@
       }
     }
   }
-  .login-right {
+  // .signup-right{
+  //   background-color: rebeccapurple;
+  //   width: 55%;
+  //   height: 100%;
+  // }
+  .login-right,
+  .signup-right {
     width: 55%;
     background: #e5e5e5;
     display: flex;
     justify-content: center;
     align-items: center;
-    .login-div {
+    .login-div,
+    .signup-div {
       //   background-color: rebeccapurple;
       transform: translate(-15rem, -13rem);
-      .login-head {
+      .login-head, .signup-head {
         font-family: "Manrope";
         font-style: normal;
         font-weight: 800;
@@ -93,3 +101,11 @@ img {
   bottom: 0;
   width: 326px;
 }
+
+// dfdf???
+// .signup {
+//   background: #ffffff;
+//   height: 100%;
+//   width: 100%;
+//   display: flex;
+// }
