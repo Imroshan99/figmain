@@ -1,5 +1,46 @@
-.login,
-.signup {
+.login-left {
+  width: 45%;
+  background: #003153;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  .login-top-svg {
+    position: absolute;
+    left: 28.44%;
+    right: 0;
+    top: 0;
+    /* bottom: -117.33%; */
+    opacity: 0.8;
+    /* transform: rotate(-0.35deg); */
+  }
+  .login-logo {
+    transform: translate(-120px, -60px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    .xmt {
+      font-family: "Manrope";
+      font-style: normal;
+      font-weight: 800;
+      font-size: 70.8608px;
+      line-height: 40px;
+      color: #ffffff;
+    }
+    .txtlogo {
+      font-family: "Manrope";
+      font-style: normal;
+      font-weight: 500;
+      font-size: 30px;
+      line-height: 50px;
+      /* identical to box height, or 156% */
+
+      color: #ffffff;
+    }
+  }
+}
+
+.login {
   background: #ffffff;
   height: 100%;
   width: 100%;
@@ -12,7 +53,7 @@
     justify-content: center;
     .login-top-svg {
       position: absolute;
-      left: 25.49%;
+      left: 28.44%;
       right: 0;
       top: 0;
       /* bottom: -117.33%; */
@@ -50,18 +91,16 @@
   //   width: 55%;
   //   height: 100%;
   // }
-  .login-right,
-  .signup-right {
+  .login-right {
     width: 55%;
     background: #e5e5e5;
     display: flex;
     justify-content: center;
     align-items: center;
-    .login-div,
-    .signup-div {
+    .login-div {
       //   background-color: rebeccapurple;
       transform: translate(-15rem, -13rem);
-      .login-head, .signup-head {
+      .login-head {
         font-family: "Manrope";
         font-style: normal;
         font-weight: 800;
@@ -102,10 +141,28 @@
   width: 326px;
 }
 
-// dfdf???
-// .signup {
-//   background: #ffffff;
-//   height: 100%;
-//   width: 100%;
-//   display: flex;
-// }
+.signup {
+  background: #ffffff;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  // background-color: red;
+  .signup-right {
+    width: 55%;
+    background: #e5e5e5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    .signup-div {
+      transform: translate(-19rem, -14rem);
+      .signup-head {
+        font-family: "Manrope";
+        font-style: normal;
+        font-weight: 800;
+        font-size: 48.3593px;
+        line-height: 58px;
+        color: #003153;
+      }
+    }
+  }
+}
