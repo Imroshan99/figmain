@@ -1,12 +1,12 @@
 import React from "react";
 // import "./login.scss"
-import alok from "../assets/btmsvg.svg";
-import roshan from "../assets/topsvg.svg";
+import bottom from "../assets/btmsvg.svg";
+import top from "../assets/topsvg.svg";
 const LogoXmonies = () => {
   return (
     <div className="login-left">
-      <img className="roshanimg" src={roshan} alt="top-roshan" />
-      <img src={alok} alt="bottom-alok" />
+      <img className="roshanimg" src={top} alt="login-top" />
+      <img src={bottom} alt="login-bottom" />
       <div className="login-logo">
         <h1 className="xmt">xMonies</h1>
         <p className="txtlogo">Trasfer made simple</p>
