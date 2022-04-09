@@ -5,8 +5,8 @@ import top from "../assets/images/svg/topsvg.svg";
 const LogoXmonies = () => {
   return (
     <div className="login-left">
-      <img className="roshanimg" src={top} alt="login-top" />
-      <img src={bottom} alt="login-bottom" />
+      <img className="login-top-svg" src={top} alt="login-top" />
+      <img className="login-bottom-svg" src={bottom} alt="login-bottom" />
       <div className="login-logo">
         <h1 className="xmt">xMonies</h1>
         <p className="txtlogo">Trasfer made simple</p>
