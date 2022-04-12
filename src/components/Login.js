@@ -21,11 +21,11 @@ const Login = () => {
               }}
               labelCol={{span: 10}} wrapperCol={{span: 15}}
             >
-              <Form.Item label="Login In Id" name="login">
+              <Form.Item label="Log In Id" name="login">
                 <Input autoComplete="off" />
               </Form.Item>
               <Form.Item label="Password" name="password">
-                <Input autocomplete="off" />
+              <Input.Password autoComplete="off"/>
               </Form.Item>
               <span className="forgot-pass">Forgot Password?</span>
               <br></br>
