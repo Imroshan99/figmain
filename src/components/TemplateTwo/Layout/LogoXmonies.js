@@ -1,7 +1,9 @@
 import React from "react";
 // import "./login.scss"
-import bottom from "../assets/images/svg/btmsvg.svg";
-import top from "../assets/images/svg/topsvg.svg";
+// import bottom from "../assets/images/svg/btmsvg.svg";
+// import top from "../assets/images/svg/topsvg.svg";
+import bottom from "../../../assets/images/svg/btmsvg.svg";
+import top from "../../../assets/images/svg/topsvg.svg";
 const LogoXmonies = () => {
   return (
     <div className="login-left">

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import LogoXmonies from "./LogoXmonies";
+import LogoXmonies from "../Layout/LogoXmonies";
 import { Step, StepLabel, Stepper } from "@material-ui/core";
 import { Form, Input, Radio, Button, Select } from "antd";
 // import { Option } from "antd/lib/mentions";

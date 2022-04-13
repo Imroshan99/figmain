@@ -2,8 +2,24 @@ import { Button, Form, Input } from "antd";
 import React from "react";
 // import "./login.scss"
 
-import LogoXmonies from "./LogoXmonies";
-const Login = () => {
+import  { useState, useReducer, useEffect } from "react";
+// import Box from "@mui/material/Box";
+// import Grid from "@mui/material/Grid";
+// import Container from "@mui/material/Container";
+// import { Link, useNavigate } from "react-router-dom";
+// import { Form, Input, notification, Spin, Menu, Dropdown, Button } from "antd";
+// import ExchangeRate from "../../../containers/ExchangeRate";
+// import { flags } from "../../../services/utility/flags";
+
+import { AuthAPI } from "../../../apis/AuthAPI";
+import { config } from "../../../config";
+import { connect, useSelector } from "react-redux";
+// import OTPBox from "../../../containers/OTPBox";
+import { ProfileAPI } from "../../../apis/ProfileAPI";
+import { encrypt, decrypt, publickey } from "../../../helpers/makeHash";
+import LogoXmonies from "../Layout/LogoXmonies";
+
+const SignIn = (props) => {
   return (
     <div className="login">
       <LogoXmonies />
@@ -53,4 +69,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default SignIn;
