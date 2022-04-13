@@ -1,8 +1,8 @@
-import { Button, Form, Input,notification } from "antd";
+import { Button, Form, Input, notification } from "antd";
 import React from "react";
 // import "./login.scss"
 
-import  { useState, useReducer, useEffect } from "react";
+import { useState, useReducer, useEffect } from "react";
 // import Box from "@mui/material/Box";
 // import Grid from "@mui/material/Grid";
 // import Container from "@mui/material/Container";
@@ -22,7 +22,7 @@ import LogoXmonies from "../Layout/LogoXmonies";
 import useHttp from "../../../hooks/useHttp";
 
 const SignIn = (props) => {
-
+  
   const AuthReducer = useSelector((state) => state);
   const ConfigReducer = useSelector((state) => state);
   const [form] = Form.useForm();
@@ -103,7 +103,7 @@ const SignIn = (props) => {
     const userRiskProfilePayload = {
       requestType: "RISKPROFILE",
       userId: loginData.userId,
-      ___token : loginData.token
+      ___token: loginData.token,
     };
 
     setLoader(true);
@@ -175,7 +175,6 @@ const SignIn = (props) => {
     }
   };
 
-
   return (
     <div className="login">
       <LogoXmonies />
@@ -189,13 +188,14 @@ const SignIn = (props) => {
           <div className="login-form">
             <Form
               onFinish={onFinish}
-              labelCol={{span: 10}} wrapperCol={{span: 15}}
+              labelCol={{ span: 10 }}
+              wrapperCol={{ span: 15 }}
             >
               <Form.Item label="Log In Id" name="loginId">
                 <Input autoComplete="off" />
               </Form.Item>
               <Form.Item label="Password" name="password">
-              <Input autoComplete="off"/>
+                <Input autoComplete="off" />
               </Form.Item>
               <span className="forgot-pass">Forgot Password?</span>
               <br></br>
@@ -212,8 +212,10 @@ const SignIn = (props) => {
                   </Button>
                 );
               }} */}
-              <Form.Item wrapperCol={{span:24}}>
-                <Button block text-white htmlType="submit"><span>Login</span></Button>
+              <Form.Item wrapperCol={{ span: 24 }}>
+                <Button block text-white htmlType="submit">
+                  <span>Login</span>
+                </Button>
               </Form.Item>
             </Form>
           </div>
