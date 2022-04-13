@@ -78,10 +78,10 @@ const mapDispatchToProps = (dispatch) => {
 
       dispatch({ type: "SET_CLIENT_ID", payload: "XR" });
       dispatch({ type: "SET_GROUP_ID", payload: "XR" });
-      dispatch({ type: "SET_SEND_COUNTRY_CODE", payload: "US" });
-      dispatch({ type: "SET_SEND_CURRENCY_CODE", payload: "USD" });
-      dispatch({ type: "SET_RECV_COUNTRY_CODE", payload: "KE" });
-      dispatch({ type: "SET_RECV_CURRENCY_CODE", payload: "KES" });
+      dispatch({ type: "SET_SEND_COUNTRY_CODE", payload: "GB" });
+      dispatch({ type: "SET_SEND_CURRENCY_CODE", payload: "GBP" });
+      dispatch({ type: "SET_RECV_COUNTRY_CODE", payload: "IN" });
+      dispatch({ type: "SET_RECV_CURRENCY_CODE", payload: "INR" });
 
       // dispatch({ type: 'SET_CLIENT_ID', payload: 'ICA' })
       // dispatch({ type: 'SET_GROUP_ID', payload: 'ICA' })

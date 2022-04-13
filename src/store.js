@@ -5,10 +5,11 @@ import { composeWithDevTools } from "redux-devtools-extension";
 import {
   getToken,
   getUserID,
+  getLastLogin,
   getUserLogin,
   getUserFullName,
   getUserKYC,
-} from "../src/reducers/AuthReducer";
+} from "./reducers/AuthReducer";
 import {
   getClientId,
   getGroupId,
@@ -20,11 +21,12 @@ import {
   getTwofa,
   getPubKey,
   getGroupIdSettings,
-} from "../src/reducers/ConfigReducer";
+} from "./reducers/ConfigReducer";
 
 const masterReducer = combineReducers({
   accessToken: getToken,
   userID: getUserID,
+  lastLogin: getLastLogin,
   userKYC: getUserKYC,
   userFullName: getUserFullName,
   isLoggedIn: getUserLogin,

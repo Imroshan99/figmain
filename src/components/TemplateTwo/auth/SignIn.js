@@ -19,6 +19,7 @@ import { connect, useSelector } from "react-redux";
 import { ProfileAPI } from "../../../apis/ProfileAPI";
 import { encrypt, decrypt, publickey } from "../../../helpers/makeHash";
 import LogoXmonies from "../Layout/LogoXmonies";
+import useHttp from "../../../hooks/useHttp";
 
 const SignIn = (props) => {
 
@@ -34,8 +35,8 @@ const SignIn = (props) => {
     {
       clientId: ConfigReducer.clientId,
       groupId: ConfigReducer.groupId,
-      sessionId: ConfigReducer.sessionId,
       twofa: ConfigReducer.twofa,
+      sessionId: ConfigReducer.sessionId,
       otpType: "LG",
       _isShowOTPBOX: false,
       isModalVisible: false,
@@ -46,207 +47,96 @@ const SignIn = (props) => {
     }
   );
 
+  const hookUserRiskProfile = useHttp(ProfileAPI.userRiskProfile);
+  const hookSendOTP = useHttp(ProfileAPI.sendOTP);
+  const hookLogin = useHttp(AuthAPI.login);
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
     form.setFieldsValue({ password: "" });
   }, []);
 
   const onFinish = (value) => {
-
-    // const data = {
-    //   requestId: config.requestId,
-    //   requestType: "LOGIN",
-    //   channelId: config.channelId,
-    //   clientId: state.clientId,
-    //   groupId: state.groupId,
-    //   sessionId: state.sessionId,
-    //   ipAddress: "127.0.0.1",
-    //   loginId: value.loginId,
-    //   password: value.password,
-    //   noofAttempts: "1",
-    //   custType: "SEND",
-    //   referer: "",
-    // };
-  
-  
-    const data = {
-      requestId: config.requestId,
+    const payload = {
       requestType: "LOGIN",
-      channelId: config.channelId,
-      clientId: "XR",
-      groupId: "XR",
-      sessionId: "y0MUMkf1j12ufD4QJPHYa7aJy2oRfEbzyZze0dzl18nuUC4DRj",
-      ipAddress: "127.0.0.1",
       loginId: value.loginId,
       password: value.password,
       noofAttempts: "1",
       custType: "SEND",
       referer: "",
-      twofa:"N"
     };
 
-    if (config.IS_ENC) {
-      var key = config.key;
-      var iv = config.iv;
-      var body = encrypt(data, key, iv);
-      var pubValue = iv.concat(key);
-      var identifier = publickey(props.appState.publicKey, pubValue);
-
-      var postData = {
-        body: body,
-        identifier: identifier,
-      };
-    } else {
-      var postData = data;
-    }
-
     setLoader(true);
-    AuthAPI.login(postData)
-      .then((res) => {
-        if (config.IS_ENC) {
-          var decode = decrypt(res.data.body, key, iv);
-          var decodeData = JSON.parse(decode);
+    hookLogin.sendRequest(payload, function (data) {
+      if (data.status == "S") {
+        if (state.twofa == "N") {
+          storeLoginData(data);
+          userRiskProfile(data);
         } else {
-          var decodeData = res.data;
+          setState({ loginData: data });
+          userRiskProfile(data);
+          sendOTP(data);
         }
-        if (decodeData.status == "S") {
-          if (state.twofa == "N") {
-            storeLoginData(decodeData);
-            userRiskProfile(decodeData);
-          } else {
-            setState({ loginData: decodeData });
-            userRiskProfile(decodeData);
-            sendOTP(decodeData);
-          }
-        } else {
-          notification.error({ message: res.data.errorMessage })
-          // notification.error({
-          //   message:
-          //     "Login Id or password not correct. Please enter valid credentials.",
-          // });
+      } else {
+        notification.error({ message: data.data.errorMessage });
+        // notification.error({
+        //   message:
+        //     "Login Id or password not correct. Please enter valid credentials.",
+        // });
 
-          let errors = [];
-          res.data.errorList.forEach((error, i) => {
-            let errorData = {
-              name: error.field,
-              errors: [error.error],
-            };
-            errors.push(errorData);
-          });
+        let errors = [];
+        data.data.errorList.forEach((error, i) => {
+          let errorData = {
+            name: error.field,
+            errors: [error.error],
+          };
+          errors.push(errorData);
+        });
 
-          if (errors.length > 0) form.setFields(errors);
-        }
-        setLoader(false);
-      })
-      .catch((error) => {
-        setLoader(false);
-      });
+        if (errors.length > 0) form.setFields(errors);
+      }
+      setLoader(false);
+    });
   };
 
-  const userRiskProfile = (data) => {
-    const userRiskProfileData = {
-      requestId: config.requestId,
+  const userRiskProfile = (loginData) => {
+    const userRiskProfilePayload = {
       requestType: "RISKPROFILE",
-      channelId: config.channelId,
-      clientId: state.clientId,
-      groupId: state.groupId,
-      sessionId: state.sessionId,
-      ipAddress: "127.0.0.1",
-      userId: data.userId,
+      userId: loginData.userId,
+      ___token : loginData.token
     };
 
-    if (config.IS_ENC) {
-      var key = config.key;
-      var iv = config.iv;
-      var body = encrypt(userRiskProfileData, key, iv);
-      var pubValue = iv.concat(key);
-      var identifier = publickey(props.appState.publicKey, pubValue);
-
-      var postData = {
-        body: body,
-        identifier: identifier,
-      };
-    } else {
-      var postData = userRiskProfileData;
-    }
-
     setLoader(true);
-    ProfileAPI.userRiskProfile(postData, data.token)
-      .then((res) => {
-        if (config.IS_ENC) {
-          var decode = decrypt(res.data.body, key, iv);
-          var decodeData = JSON.parse(decode);
-        } else {
-          var decodeData = res.data;
-        }
-        // console.log('userRiskProfile API but didn\'t/ work')
-        if (decodeData.status == "S") {
-          // notification.success({ message: res.data.message });
-          setState({ nextAction: decodeData.nextAction });
-        } else {
-          // notification.error({ message: res.data.errorMessage })
-        }
-        setLoader(false);
-      })
-      .catch((error) => {
-        setLoader(false);
-      });
+    hookUserRiskProfile.sendRequest(userRiskProfilePayload, function (data) {
+      if (data.status == "S") {
+        setState({ nextAction: data.nextAction });
+      }
+      setLoader(false);
+    });
   };
 
   const sendOTP = (data) => {
     const OTPData = {
-      requestId: config.requestId,
       requestType: "SENDOTP",
-      channelId: config.channelId,
-      clientId: state.clientId,
-      groupId: state.groupId,
-      sessionId: state.sessionId,
-      ipAddress: "127.0.0.1",
       otpType: state.otpType,
       userId: data.userId,
       otpOption: "SM",
     };
 
-    if (config.IS_ENC) {
-      var key = config.key;
-      var iv = config.iv;
-      var body = encrypt(OTPData, key, iv);
-      var pubValue = iv.concat(key);
-      var identifier = publickey(props.appState.publicKey, pubValue);
-
-      var postData = {
-        body: body,
-        identifier: identifier,
-      };
-    } else {
-      var postData = OTPData;
-    }
-
     setLoader(true);
-    ProfileAPI.sendOTP(postData, data.token)
-      .then((res) => {
-        if (config.IS_ENC) {
-          var decode = decrypt(res.data.body, key, iv);
-          var decodeData = JSON.parse(decode);
-        } else {
-          var decodeData = res.data;
-        }
-
-        if (decodeData.status == "S") {
-          // notification.success({ message: decodeData.message })
-          setState({
-            verificationToken: decodeData.verificationToken,
-            _isShowOTPBOX: true,
-            isModalVisible: true,
-          });
-        } else {
-          notification.error({ message: decodeData.errorMessage });
-        }
-        setLoader(false);
-      })
-      .catch((error) => {
-        setLoader(false);
-      });
+    hookSendOTP.sendRequest(OTPData, function (data) {
+      if (data.status == "S") {
+        // notification.success({ message: decodeData.message })
+        setState({
+          verificationToken: data.verificationToken,
+          _isShowOTPBOX: true,
+          isModalVisible: true,
+        });
+      } else {
+        notification.error({ message: data.errorMessage });
+      }
+      setLoader(false);
+    });
   };
 
   const storeLoginData = (loginData) => {
@@ -285,6 +175,7 @@ const SignIn = (props) => {
     }
   };
 
+
   return (
     <div className="login">
       <LogoXmonies />
@@ -304,7 +195,7 @@ const SignIn = (props) => {
                 <Input autoComplete="off" />
               </Form.Item>
               <Form.Item label="Password" name="password">
-              <Input.Password autoComplete="off"/>
+              <Input autoComplete="off"/>
               </Form.Item>
               <span className="forgot-pass">Forgot Password?</span>
               <br></br>
@@ -337,6 +228,7 @@ const mapDispatchToProps = (dispatch) => {
   return {
     saveUser: (data, nextAction) => {
       // dispatch({ type: 'SET_USER_TOKEN', payload: data.token })
+      dispatch({ type: "SET_USER_LAST_LOGIN", payload: data.lastLoginTimeIST });
       dispatch({ type: "SET_USER_ID", payload: data.userId });
       dispatch({ type: "SET_USER_KYC", payload: nextAction });
       dispatch({

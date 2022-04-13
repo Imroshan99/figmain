@@ -11,6 +11,12 @@ export const getUserID = (state = '', action) => {
     }
     return state;
 }
+export const getLastLogin = (state = '', action) => {
+    if (action.type === 'SET_USER_LAST_LOGIN') {
+        return action.payload
+    }
+    return state;
+}
 
 export const getUserFullName = (state = '', action) => {
     if (action.type === 'SET_USER_FULL_NAME') {
