@@ -281,8 +281,8 @@
           background: #e5e5e5;
         }
       }
-      .signup-inputs {
-      }
+      // .signup-inputs {
+      // }
     }
   }
 }
@@ -310,3 +310,12 @@
 //   transition: all 0.3s;
 //   width: 100%;
 // }
+
+
+//media query---------------->
+
+@media (max-width:980px) {
+  .login .login-right .login-div {
+    transform: translate(0rem, -4rem);
+}
+}
