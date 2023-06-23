@@ -1,0 +1,899 @@
+import React, { useState, useEffect, useReducer } from "react";
+import { Row, Col } from "react-bootstrap";
+import {
+  Form,
+  Input,
+  Tabs,
+  Select,
+  notification,
+  Spin,
+  Checkbox,
+  Upload,
+  Button,
+  DatePicker,
+  message,
+  Modal,
+} from "antd";
+import moment from "moment";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import Swal from "sweetalert2";
+import { useDispatch, useSelector } from "react-redux";
+
+import { ProfileAPI } from "../../../../apis/ProfileAPI";
+import { GuestAPI } from "../../../../apis/GuestAPI";
+import useHttp from "../../../../hooks/useHttp";
+import { inputValidations } from "../../../../services/validations/validations";
+import CustomInput from "../../../../reusable/CustomInput";
+import { ViAmericaJumioAPI } from "../../../../apis/ViAmericaApi/JumioAPI";
+import { TransactionAPI } from "../../../../apis/TransactionAPI";
+import { getProcessingPartner } from "../../../../services/utility/group";
+import { setKycDoneFrmTxnValidate } from "../../../../reducers/userReducer";
+
+const { Option } = Select;
+const countryCodeList = [{ countryName: "United States of America", countryPhoneCode: "1" }];
+const Kyc = (props) => {
+  const [form] = Form.useForm();
+  const AuthReducer = useSelector((state) => state.user);
+  const ConfigReducer = useSelector((state) => state.user);
+  const { inputFields } = ConfigReducer.groupIdSettings.kyc;
+  // console.log(AuthReducer);
+  const [loading, setLoader] = useState(0);
+
+  const [isJumioKYCVisible, setIsJumioKYCVisible] = useState(false);
+
+  let navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useDispatch();
+  const [state, setState] = useReducer((state, newState) => ({ ...state, ...newState }), {
+    twofa: AuthReducer.twofa,
+    sessionId: AuthReducer.sessionId,
+    userID: AuthReducer.userID,
+    userFullName: AuthReducer.userFullName,
+    sourceOFFundLists: [],
+    industryLists: [],
+    additionalInfo2: "",
+    occupationLists: [],
+    uniqueIdentifierLists: [],
+    stateLists: [],
+    cityLists: [],
+    profileData: [],
+
+    stateListsIssuer: [],
+    issuerCountryList: [],
+    idIssuer: "",
+    _occupationId: "",
+
+    redirectPage: "",
+    redirectPageState: [],
+
+    // for jumio
+    jumioComplete: true,
+    redirectUrl: "",
+  });
+
+  const hookGetProfile = useHttp(ProfileAPI.getProfile);
+  const hookEditProfile = useHttp(ProfileAPI.editProfile);
+  const hookEditProfileChangeCountry = useHttp(ProfileAPI.editProfileChangeCountry);
+
+  const hookGetStateCities = useHttp(GuestAPI.stateCities);
+
+  const hookGetOccupationLists = useHttp(GuestAPI.occupationLists);
+  const hookGetIndustryLists = useHttp(GuestAPI.industryLists);
+  const hookGetSourceOFFundLists = useHttp(TransactionAPI.sourceOFFundLists);
+
+  const hookGetUniqueIdentifierList = useHttp(GuestAPI.uniqueIdentifierList);
+  const hookGetCountryStates = useHttp(GuestAPI.countryStates);
+  const hookGetCountryLists = useHttp(GuestAPI.countryList);
+  // VIAMERIA apis
+  const hookViaJumioInit = useHttp(ViAmericaJumioAPI.viaJumioInit);
+  const hookViaJumioStatus = useHttp(ViAmericaJumioAPI.viaJumioStatus);
+  // const hookGetSenderKycDetails = useHttp(ProfileAPI.getSenderKycDetails);
+  // const hookViaUpdateSender = useHttp(ProfileAPI.viaUpdateSender);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(async () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    getUserProfile();
+    getSourceOFFundLists();
+    getIndustryLists();
+    // getOccupationLists();
+    getUniqueIdentifierNames();
+    getStateLists();
+    setState({
+      redirectPage: location?.state?.fromPage,
+      redirectPageState: location?.state?.fromPageState,
+    });
+    viAmericaTransactionValidate();
+
+    if (props?.redirectKYC) {
+      setState({ btnDisabled: false, redirectUrl: "", jumioComplete: false });
+    } else {
+      viaJumioInit();
+    }
+    console.log(location);
+  }, []);
+
+  useEffect(() => {
+    // Create IE + others compatible event handler
+    var eventMethod = window.addEventListener ? "addEventListener" : "attachEvent";
+    var eventer = window[eventMethod];
+    var messageEvent = eventMethod === "attachEvent" ? "onmessage" : "message";
+    eventer(
+      messageEvent,
+      function (e) {
+        if (e.data.data === "JUMIO_FAIL") {
+          setState({ redirectUrl: "" });
+          setIsJumioKYCVisible(false);
+        } else if (e.data.data === "JUMIO_SUCCESS") {
+          setState({ redirectUrl: "", jumioComplete: false });
+          setState({ btnDisabled: false });
+          viaJumioStatus();
+        }
+      },
+      false
+    );
+  }, []);
+
+  useEffect(() => {
+    autoFillKYC(state.profileData);
+  }, [state.profileData || state.industryLists]);
+
+  const autoFillKYC = (data) => {
+    setState({ _occupationId: data.occupation });
+    state?.industryLists?.find((i) => {
+      if (i.industryDesc == data.industryDesc) {
+        setState({ _industryId: i.industryId });
+      }
+    });
+
+    let sourceofFund = "";
+    state?.sourceOFFundLists?.find((i) => {
+      if (i.sourceFundId === data.sourceOfFundName) {
+        setState({ _sourceOfFundId: i.sourceFundId });
+        sourceofFund = i.sourceOfFund;
+      }
+    });
+    let empPhone = data?.employerPhone?.split("-")[1];
+    if (data.ssn !== "") {
+      setState({ ssnFlag: "Y" });
+    }
+    form.setFieldsValue({
+      employerPhoneCode: data.mobilePhoneCode,
+      employerPhoneNumer: empPhone,
+      ssn: data.ssn,
+      confirm_ssn: data.ssn,
+      ssnFlag: "Y",
+      companyName: data.employer,
+      industry: data.industryDesc,
+      sourcefund: sourceofFund,
+      occupation: data.occupationDesc,
+      address1: data.address1,
+      address2: data.address2,
+      zipCode: data.zip,
+      state: data.state,
+      city: data.city,
+    });
+  };
+
+  const onChangeIndustrylist = (e) => {
+    let industry = JSON.parse(e);
+    setState({ _industryId: industry.industryId });
+    form.setFieldsValue({ occupation: "" });
+
+    let payload = {
+      requestType: "LEAD",
+    };
+
+    setLoader((prevState) => prevState + 1);
+    hookGetOccupationLists.sendRequest(payload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status === "S") {
+        let _occupationList = [];
+        data.responseData.map((i) => {
+          if (i.industryId == industry.industryCode) {
+            _occupationList.push(i);
+          }
+        });
+        setState({ occupationLists: _occupationList });
+      }
+    });
+  };
+
+  const viAmericaTransactionValidate = () => {
+    if (location?.state?.needID) {
+      setState({ btnDisabled: true });
+      setIsJumioKYCVisible(true);
+    } else if (location?.state?.needKYC) {
+      setState({ btnDisabled: false, jumioComplete: false });
+    } else {
+      setState({ btnDisabled: true });
+      setIsJumioKYCVisible(true);
+    }
+  };
+
+  const getUserProfile = async () => {
+    let payload = {
+      requestType: "USERPROFILE",
+      userId: state.userID,
+    };
+    setLoader((prevState) => prevState + 1);
+    hookGetProfile.sendRequest(payload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status === "S") {
+        setState({ profileData: data });
+        // autoFillKYC(data);
+      } else {
+        notification.error({
+          message: data.errorMessage ? data.errorMessage : "Get Profile failed.",
+        });
+      }
+    });
+  };
+
+  const onSelectStateHandler = async (stateCode) => {
+    form.setFieldsValue({ city: "" });
+    const cityPayload = {
+      requestType: "CITILIST",
+      countryCode: AuthReducer.sendCountryCode,
+      stateCode: stateCode,
+    };
+
+    setLoader((prevState) => prevState + 1);
+    hookGetStateCities.sendRequest(cityPayload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status === "S") {
+        setState({
+          cityLists: data.responseData,
+        });
+      }
+    });
+  };
+
+  const getSourceOFFundLists = () => {
+    const payload = {
+      requestType: "FUNDSOURCELIST",
+    };
+    setLoader((prevState) => prevState + 1);
+    hookGetSourceOFFundLists.sendRequest(payload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status == "S") {
+        setState({ sourceOFFundLists: data.responseData });
+      } else {
+        notification.error({
+          message: data.errorMessage ? data.errorMessage : "Source of fund failed.",
+        });
+      }
+    });
+  };
+
+  const getIndustryLists = () => {
+    let payload = {
+      requestType: "INDUSTRYLIST",
+      keyword: "",
+    };
+
+    setLoader((prevState) => prevState + 1);
+    hookGetIndustryLists.sendRequest(payload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status === "S") {
+        setState({ industryLists: data.responseData });
+      } else {
+        notification.error({
+          message: data.errorMessage ? data.errorMessage : "Industry list failed.",
+        });
+      }
+    });
+  };
+
+  const getOccupationLists = () => {
+    let payload = {
+      requestType: "OCCUPATIONLISTS",
+    };
+    setLoader((prevState) => prevState + 1);
+    hookGetOccupationLists.sendRequest(payload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status === "S") {
+        setState({ occupationLists: data.responseData });
+      }
+    });
+  };
+
+  const getUniqueIdentifierNames = async () => {
+    let payload = {
+      requestType: "UNNAMESLIST",
+      idFor: "RECV",
+    };
+
+    setLoader((prevState) => prevState + 1);
+    hookGetUniqueIdentifierList.sendRequest(payload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status === "S") {
+        setState({ uniqueIdentifierLists: data.responseData });
+      }
+    });
+  };
+
+  const getStateLists = async () => {
+    let payload = {
+      requestType: "STATELIST",
+      countryCode: AuthReducer.sendCountryCode,
+      keyword: "",
+    };
+
+    setLoader((prevState) => prevState + 1);
+    hookGetCountryStates.sendRequest(payload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status === "S") {
+        setState({ stateLists: data.responseData });
+        const stateIssuerArray = [
+          ...data.responseData,
+          {
+            stateCode: "OTHER",
+            state: "Other",
+          },
+        ];
+        setState({ stateListsIssuer: stateIssuerArray });
+      }
+    });
+  };
+
+  const getIssuerCountryList = async () => {
+    let payload = {
+      requestType: "COUNTRYLIST",
+    };
+
+    setLoader((prevState) => prevState + 1);
+    hookGetCountryLists.sendRequest(payload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status === "S") {
+        setState({ issuerCountryList: data.responseData });
+      }
+    });
+  };
+
+  const viaJumioInit = () => {
+    const payload = {
+      requestType: "JUMIOINIT",
+      userId: AuthReducer.userID,
+      method: "POST",
+    };
+
+    setLoader((prevState) => prevState + 1);
+    hookViaJumioInit.sendRequest(payload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status === "S") {
+        setState({ redirectUrl: data.message });
+        setIsJumioKYCVisible(true);
+      } else {
+        notification.error({
+          message: data.errorMessage ? data.errorMessage : "Via Jumio init failed.",
+        });
+      }
+    });
+  };
+
+  const viaJumioStatus = () => {
+    const payload = {
+      requestType: "CALCULATECOST",
+      userId: AuthReducer.userID,
+      method: "GET",
+    };
+
+    setLoader((prevState) => prevState + 1);
+    hookViaJumioStatus.sendRequest(payload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status === "S") {
+        if (data.shouldInitSession === true) {
+          notification.success({ message: "Please upload documents manually" });
+          navigate("/user-doc-upload");
+        } else {
+          notification.success({ message: "Jumio kyc has been done" });
+        }
+      } else {
+        notification.error({
+          message: data.errorMessage ? data.errorMessage : "Via jumio status failed",
+        });
+      }
+    });
+  };
+  const onFinish = (value) => {
+    let clientID;
+    if (getProcessingPartner(AuthReducer.sendCountryCode) === "VIAMERICAS") {
+      clientID = {
+        clientId: "VIAMERICAS",
+      };
+    }
+    let editProfilePayload = {
+      ...clientID,
+      requestType: "EDITPROFILE",
+      userId: AuthReducer.userID,
+      occupation: state._occupationId,
+      homePhoneNo: "",
+      companyName: value.companyName,
+      emailId: state.profileData.emailId,
+      pageName: "EDITPROFILE",
+      ssn: value.ssn ? value.ssn : "",
+      passportExpiryDt:
+        state.profileData.passportExpiryDt == "1900-01-01"
+          ? ""
+          : state.profileData.passportExpiryDt,
+      address5: state.profileData.address5,
+      pep: "",
+      passportIssueDate: "",
+      address4: "",
+      profession: "606",
+      isSameCommAddressFlag: "Y",
+      motherMaidenName: "",
+      marketingCommunication: "",
+      tnc: "Y",
+      primaryBusinessFunction: "",
+      firstName: state.profileData.firstName,
+      nationality: "US",
+      flatNo: "",
+      dob: state.profileData.dob,
+      SIN: value.ssn ? value.ssn : "",
+      salutation: "",
+      periodicUpdate: "",
+      passportIssuePlace: "",
+      income: "0",
+      lastName: state.profileData.lastName,
+      gender: state.profileData.gender ? state.profileData.gender : "M",
+
+      // data for viamerica
+      employer: value.companyName,
+      employerPhoneCode: value.employerPhoneCode,
+      employerPhoneNo: value.employerPhoneNumer,
+
+      // address
+      address1: window.btoa(value.address1),
+      address2: window.btoa(value.address2),
+      address3: "",
+      state: window.btoa(value.state),
+      city: window.btoa(value.city),
+      zipCode: value.zipCode.replace(/\s/g, ""),
+      sendCountry: AuthReducer.sendCountryCode,
+
+      // communication address
+      commAddress1: window.btoa(value.address1),
+      commAddress2: window.btoa(value.address2),
+      commStateProvince: value.state,
+      commCity: value.city,
+
+      commPostalCode: value.zipCode.replace(/\s/g, ""),
+      commCountry: AuthReducer.sendCountryCode,
+
+      documentType: value.idtype,
+      industry: state._industryId,
+      title: "",
+      isEmailVerified: "Y",
+      sourceOfFund: state._sourceOfFundId,
+      drivingLicenseNo: value.idtype === "DL" ? value.id_number : "",
+      mobilePhoneCode: state.profileData.mobilePhoneCode,
+      // clientId: "VIAMERICAS",
+      extraInfoRequire: "", //Y
+      citizenship: "US", //US
+      mobileNo: state.profileData.mobileNo,
+      isMobileVerified: "Y",
+
+      middleName: state.profileData.middleName,
+      uniqueIdentifierType: value.idtype,
+      uniqueIdentifierValue: value.id_number,
+    };
+    setLoader((prevState) => prevState + 1);
+    hookEditProfileChangeCountry.sendRequest(editProfilePayload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status === "S") {
+        notification.success({
+          message: "Congratulations on completing the KYC.",
+        });
+        if (props.fromReview) {
+          props.setState({ viewTarnsaction: true });
+        } else {
+          dispatch(setKycDoneFrmTxnValidate(true));
+          navigate("/new-transaction", {
+            state: {
+              fromPageState: state?.redirectPageState,
+              autoFill: location?.state?.autoFill,
+            },
+          });
+        }
+      } else {
+        notification.error({
+          message: data.errorMessage ? data.errorMessage : "Edit Profile change country failed.",
+        });
+        let errors = [];
+        data.errorList.forEach((error, i) => {
+          let errorData = {
+            name: error.field,
+            errors: [error.error],
+          };
+          errors.push(errorData);
+        });
+
+        if (errors.length > 0) form.setFields(errors);
+      }
+    });
+  };
+
+  const sendCountryConstant = () => {
+    switch (AuthReducer.sendCountryCode) {
+      case "UK":
+        return "UK";
+
+      case "AE":
+        return "UAE";
+
+      default:
+        return "USA";
+    }
+  };
+
+  return (
+    <div>
+      <Spin spinning={loading === 0 ? false : true} delay={500}>
+        {!state.showConfirmBankAccountDetails && (
+          <Row className="justify-content-center ">
+            <Col lg={10} md={12}>
+              <div className="">
+                <Form
+                  form={form}
+                  onFinish={onFinish}
+                  initialValues={{
+                    sendCountry: sendCountryConstant(),
+                    commCountry: sendCountryConstant(),
+                  }}
+                >
+                  <Row className="justify-content-center">
+                    <Col md={12}>
+                      <Row className="justify-content-center">
+                        {!inputFields?.sourceOfFund?.hidden && (
+                          <Col md={6}>
+                            <CustomInput
+                              className="form-item w-100"
+                              name="sourcefund"
+                              label="Source of fund"
+                              placeholder="Select Source of fund"
+                              showSearch
+                              type="select"
+                              required
+                            >
+                              {state.sourceOFFundLists.map((sList, i) => {
+                                return (
+                                  <Option key={i} value={sList.sourceOfFund}>
+                                    {sList.sourceOfFund}
+                                  </Option>
+                                );
+                              })}
+                            </CustomInput>
+                          </Col>
+                        )}
+
+                        <Col md={3}>
+                          <label className="form-label">
+                            <span className="red_ast">*</span>Industry
+                          </label>
+                          <CustomInput
+                            className="form-item w-100"
+                            label="Industry"
+                            showLabel={false}
+                            name="industry"
+                            placeholder="Select Industry"
+                            showSearch
+                            type="select"
+                            onChange={onChangeIndustrylist}
+                            required
+                          >
+                            {state.industryLists.map((industryRow, i) => {
+                              return (
+                                <Option
+                                  key={i}
+                                  value={JSON.stringify(industryRow)}
+                                >{`${industryRow.industryName}`}</Option>
+                              );
+                            })}
+                          </CustomInput>
+                        </Col>
+                        <Col md={3}>
+                          <label className="form-label">
+                            <span className="red_ast">*</span>Occupation
+                          </label>
+                          <CustomInput
+                            className="form-item w-100"
+                            label="Occupation"
+                            showLabel={false}
+                            name="occupation"
+                            placeholder="Select Occupation"
+                            showSearch
+                            type="select"
+                            onChange={(e) => setState({ _occupationId: e })}
+                            required
+                          >
+                            {state.occupationLists.map((ocRow, i) => {
+                              return (
+                                <Option
+                                  key={i}
+                                  value={ocRow.occupationId}
+                                >{`${ocRow.occupationName}`}</Option>
+                              );
+                            })}
+                          </CustomInput>
+                        </Col>
+                        <Col md={4}>
+                          <label className="form-label">
+                            <span className="red_ast">*</span>Employer Name
+                          </label>
+
+                          <CustomInput
+                            showLabel={false}
+                            label="Employer Name"
+                            min={3}
+                            max={50}
+                            name="companyName"
+                            placeholder="Employer Name"
+                            validationRules={[
+                              {
+                                pattern: /^([\w]{1,})+\s+([\w\s]{1,})+$/i,
+                                message: "Please enter valid name.",
+                              },
+                              {
+                                pattern: /^([^0-9]*)$/,
+                                message: "Number not allow in name",
+                              },
+                            ]}
+                            required
+                          />
+                        </Col>
+
+                        <Col md={3}>
+                          <label className="form-label">
+                            <span className="red_ast">*</span>Mobile Phone Code
+                          </label>
+                          <CustomInput
+                            className="form-item w-100"
+                            label="Phone code"
+                            showLabel={false}
+                            name="employerPhoneCode"
+                            placeholder="Select Mobile Phone Code"
+                            showSearch
+                            type="select"
+                            required
+                          >
+                            {countryCodeList.map((i) => {
+                              return (
+                                <Option value={i.countryPhoneCode}>
+                                  {i.countryPhoneCode} {i.countryName}
+                                </Option>
+                              );
+                            })}
+                          </CustomInput>
+                        </Col>
+                        <Col md={5}>
+                          <label className="form-label">
+                            <span className="red_ast">*</span>Employer Phone Number
+                          </label>
+
+                          <CustomInput
+                            showLabel={false}
+                            label="Employer Phone Number"
+                            name="employerPhoneNumer"
+                            placeholder="Employer Phone Number"
+                            min={10}
+                            max={10}
+                            validationRules={[
+                              {
+                                pattern: /^[0-9\b]+$/,
+                                message: "Only Numbers allowed",
+                              },
+                            ]}
+                            required
+                          />
+                        </Col>
+                      </Row>
+                    </Col>
+
+                    <Col md={6}>
+                      <label className="form-label">
+                        <span className="red_ast">*</span>
+                        Social Security Number
+                      </label>
+
+                      <CustomInput
+                        label="Social Security Number"
+                        className="form-item"
+                        name="ssn"
+                        showLabel={false}
+                        validationRules={[
+                          {
+                            pattern: /^[0-9\b]+$/,
+                            message: "Only Numbers allowed",
+                          },
+                        ]}
+                        min={9}
+                        max={9}
+                        placeholder="Social Security Number"
+                        required
+                      />
+                    </Col>
+                    <Col md={6}>
+                      <label className="form-label">
+                        <span className="red_ast">*</span>
+                        Confirm Social Security Number
+                      </label>
+
+                      <CustomInput
+                        className="form-item"
+                        name="confirm_ssn"
+                        min={9}
+                        max={9}
+                        showLabel={false}
+                        label="Confirm Social Security Number"
+                        placeholder="Confirm Social Security Number"
+                        validationRules={[
+                          {
+                            pattern: /^[0-9\b]+$/,
+                            message: "Only Numbers allowed",
+                          },
+                          ({ getFieldValue }) => ({
+                            validator(rule, value) {
+                              if (!value || getFieldValue("ssn") === value) {
+                                return Promise.resolve();
+                              }
+                              return Promise.reject(
+                                "The two Social Security Number that you entered do not match!"
+                              );
+                            },
+                          }),
+                        ]}
+                        required
+                      />
+                    </Col>
+
+                    <Col md={12}>
+                      <label className="form-label">
+                        <span className="red_ast">*</span>Address
+                      </label>
+
+                      <CustomInput name="address1" label="Address" showLabel={false} required>
+                        <Input.TextArea placeholder="Address" />
+                      </CustomInput>
+                    </Col>
+
+                    <Col md={12}>
+                      <label className="form-label">Street</label>
+
+                      <CustomInput
+                        showLabel={false}
+                        label="Street"
+                        name="address2"
+                        placeholder="Street / Line 1"
+                        required
+                      />
+                    </Col>
+                    <Col md={3}>
+                      <label className="form-label">
+                        <span className="red_ast">*</span>
+                        Zipcode / Postal Code
+                      </label>
+                      <CustomInput
+                        showLabel={false}
+                        label="Zipcode / Postal Code"
+                        name="zipCode"
+                        validationRules={[...inputValidations.zipCode(AuthReducer.sendCountryCode)]}
+                        placeholder="Zipcode / Postal Code"
+                        required
+                      />
+                    </Col>
+
+                    <Col md={3}>
+                      <label className="form-label">
+                        <span className="red_ast">*</span>State
+                      </label>
+                      <CustomInput
+                        type="select"
+                        showLabel={false}
+                        label="State"
+                        className="w-100"
+                        placeholder="Select State"
+                        showSearch
+                        name="state"
+                        onChange={onSelectStateHandler}
+                        required
+                      >
+                        {state.stateLists.map((st, i) => {
+                          return <Option key={i} value={st.state}>{`${st.state}`}</Option>;
+                        })}
+                      </CustomInput>
+                    </Col>
+                    <Col md={3}>
+                      <label className="form-label">
+                        <span className="red_ast">*</span>City
+                      </label>
+
+                      <CustomInput
+                        type="select"
+                        showLabel={false}
+                        label="City"
+                        name="city"
+                        className="w-100"
+                        placeholder="Select City"
+                        showSearch
+                        required
+                      >
+                        {state.cityLists.map((st, i) => {
+                          return <Option key={i} value={st.city}>{`${st.city}`}</Option>;
+                        })}
+                      </CustomInput>
+                    </Col>
+                    <Col md={3}>
+                      <label className="form-label">
+                        <span className="red_ast">*</span>Country
+                      </label>
+                      <CustomInput
+                        showLabel={false}
+                        label="Country"
+                        name="sendCountry"
+                        readOnly={true}
+                        placeholder="Country"
+                        required
+                      />
+                    </Col>
+                    {state.jumioComplete && (
+                      <Col md={12}>
+                        <div className="d-flex justify-content-end">
+                          <button
+                            className="btn btn-secondary text-white btn-sm my-3"
+                            type="button"
+                            disabled={!state.btnDisabled}
+                            onClick={() => viaJumioInit()}
+                          >
+                            Click here to upload documents
+                          </button>
+                        </div>
+                      </Col>
+                    )}
+                    <Col md={12}>
+                      <div className="d-flex justify-content-end">
+                        <Link to={"/"} className="btn btn-secondary me-3 my-3">
+                          Back
+                        </Link>
+                        <button
+                          className="btn btn-primary text-white my-3"
+                          type="submit"
+                          // onClick={() => setIsICICI(true)}
+                        >
+                          Continue
+                        </button>
+                      </div>
+                    </Col>
+                  </Row>
+                </Form>
+              </div>
+            </Col>
+          </Row>
+        )}
+      </Spin>
+      {state.redirectUrl && (
+        <Modal
+          className="CR_jumio_modal"
+          width={1000}
+          visible={isJumioKYCVisible}
+          footer={null}
+          // onOk={handleOk}
+          onCancel={() => setIsJumioKYCVisible(false)}
+          // closable={false}
+          // maskClosable={false}
+        >
+          <iframe
+            title="jumio"
+            src={state.redirectUrl}
+            width="100%"
+            height="500px"
+            allow="camera;fullscreen;accelerometer;gyroscope;magnetometer"
+            allowfullscreen
+          ></iframe>
+        </Modal>
+      )}
+    </div>
+  );
+};
+export default Kyc;
