@@ -1,0 +1,165 @@
+import React, { useEffect } from "react";
+import { Form, Select, Row, Col, Space, Radio } from "antd";
+import { Link, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import CustomInput from "../../../../reusable/CustomInput";
+import { getProcessingPartner } from "../../../../services/utility/group";
+const { Option } = Select;
+
+export default function SelectAccountDetail(props) {
+  const AuthReducer = useSelector((state) => state.user);
+  const { sendMoneyForm } = props;
+  const navigate=useNavigate()
+  // useEffect(() => {
+  //   sendMoneyForm.setFieldsValue({
+  //     recipient:
+  //       props.state.receiverName === "" ? undefined : props.state.receiverName,
+  //     // isBankTransfer: props.state.isSelectedBankTransfer ? "Bank Transfer" : "",
+
+  //     sourceAccount:
+  //       props.state.senderName === "" ? undefined : props.state.senderName,
+  //   });
+  //   console.log("data=> props", props.state);
+  // }, []);
+
+  const handleChangeRecipent = (rec) => {
+    let recipent = JSON.parse(rec);
+    props.setState({
+      receiverName: `${recipent.firstName} ${recipent.lastName}`,
+      receiverAccount: recipent.accountNo,
+      nickName: recipent.nickName,
+    });
+    props.setState({ formObj: { ...props.state.formObj, recipient: rec } });
+  };
+
+  const handleChangeBankAccount = (acc) => {
+    console.log("acc", acc);
+    props.setState({ formObj: { ...props.state.formObj, sourceAccount: acc } });
+    let account = JSON.parse(acc);
+    console.log("account", account);
+    props.setState({
+      sendAccId: props.state.sendModeCode === "CIP" ? account.sendAccId : "",
+      achAccId: props.state.sendModeCode === "ACH" ? account.aCHAccId : "",
+      accountNo: account.accountNo,
+      senderName: account.accountHolderName,
+    });
+    if (getProcessingPartner(AuthReducer.sendCountryCode) === "VIAMERICAS") {
+      props.setState({
+        viaIdPayment: account.viaIdPayment,
+      });
+    }
+    // ${rec.firstName} ${rec.lastName} ${rec.accountNo}
+  };
+
+  // const onFinishAccount = (value) => {
+  //   props.setState({ isStep: 3 });
+  //   props.getPurposeLists();
+  // };
+  const addNewReciver=()=>{
+    navigate("/add-recipient", {
+      state: {
+        fromPage: "NEW_TRANSACTION",
+        fromPageState: props?.state?.formObj,
+        autoFill: true,
+      },
+    });
+  }
+
+  return (
+    <div>
+      <div className="row">
+        {/* <label className="form-label">Select Recipient</label> */}
+        <div className="col-12 col-md-4">
+          <CustomInput
+            className="form-item"
+            name="recipient"
+            type="select"
+            required
+            onChange={handleChangeRecipent}
+            label="Select Recipient"
+            placeholder="Select Recipient"
+          >
+            {props.state.receiverLists.map((rec, i) => {
+              return (
+                <Option
+                  key={i}
+                  value={JSON.stringify(rec)}
+                >{`${rec.firstName} ${rec.lastName} ${rec.accountNo} (${rec.bankName})`}</Option>
+              );
+            })}
+          </CustomInput>
+        </div>
+        <div className="col-12 col-md-8 text-start d-flex align-items-end">
+          <span
+            onClick={addNewReciver}
+            className="btn btn-primary-light mb-4"
+          >
+            Add New Receiver
+          </span>
+        </div>
+      </div>
+
+      {props.state.isSelectedBankTransfer && (
+        <>
+          {getProcessingPartner(AuthReducer.sendCountryCode) !== "LULU" && (
+            <div className="row">
+              <div className="col-12 col-md-4">
+                <CustomInput
+                  className="form-item"
+                  name="sourceAccount"
+                  label="Select Sender Account"
+                  type="select"
+                  required
+                  onChange={handleChangeBankAccount}
+                  placeholder="Select Sender Account"
+                >
+                  {props.state.bankAccountLists.map((acc, i) => {
+                    return (
+                      <Option
+                        key={i}
+                        viaIdPayment={acc.viaIdPayment}
+                        value={JSON.stringify(acc)}
+                      >{`${acc.accountHolderName} ${acc.accountNo}`}</Option>
+                    );
+                  })}
+                </CustomInput>
+              </div>
+              <div className="col-12 col-md-8 text-start d-flex align-items-end">
+                <Link
+                  to={{
+                    pathname: "/add-bank-account",
+                  }}
+                  state={{
+                    fromPage: "NEW_TRANSACTION",
+                    fromPageState: {
+                      sendAmount: props.state.sendAmount,
+                      activeStep: 2,
+                    },
+                  }}
+                  className="btn btn-primary-light mb-4"
+                >
+                  Add New Bank Account
+                </Link>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* <div className="d-flex my-2">
+          <button
+            className="btn btn-primary text-white px-5"
+            onClick={() => props.setState({ isStep: 1 })}
+          >
+            Back
+          </button>
+          <button
+            htmlType="submit"
+            className="btn btn-primary text-white px-5 mx-4"
+          >
+            Proceed
+          </button>
+        </div> */}
+    </div>
+  );
+}
