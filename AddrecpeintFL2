@@ -1,0 +1,1723 @@
+import React, { useState, useEffect, useReducer } from "react";
+import { Row, Col } from "react-bootstrap";
+import {
+  Form,
+  Input,
+  Radio,
+  Tabs,
+  Select,
+  notification,
+  Spin,
+  Space,
+  DatePicker,
+} from "antd";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ReceiverAPI } from "../../../../apis/ReceiverAPI";
+import Swal from "sweetalert2";
+import { GuestAPI } from "../../../../apis/GuestAPI";
+import { config } from "../../../../config";
+import { useDispatch, useSelector } from "react-redux";
+import { PencilSquare } from "react-bootstrap-icons";
+import OTPBox from "../../../../containers/OTPBox";
+import { ProfileAPI } from "../../../../apis/ProfileAPI";
+import { encrypt, decrypt, publickey } from "../../../../helpers/makeHash";
+import moment from "moment";
+import useHttp from "../../../../hooks/useHttp";
+import { inputValidations } from "../../../../services/validations/validations";
+import CustomInput from "../../../../reusable/CustomInput";
+import BankComponent from "./BankComponent";
+import {
+  setRecvCountryCode,
+  setRecvCurrencyCode,
+} from "../../../../reducers/userReducer";
+import { getProcessingPartner } from "../../../../services/utility/group";
+import { LuluGuestAPI } from "../../../../apis/LuluApi/GuestApi";
+
+const { TabPane } = Tabs;
+const { Option } = Select;
+
+export default function AddRecipient(props) {
+  const [form] = Form.useForm();
+  const [form1] = Form.useForm();
+  const AuthReducer = useSelector((state) => state.user);
+  const ConfigReducer = useSelector((state) => state.user);
+  const AddRecipientFormConfig =
+    ConfigReducer.groupIdSettings.recipientModule.AddRecipientForm;
+
+  const [isICICI, setIsICICI] = useState(true);
+  const [spin, setSpin] = useState(0);
+  let navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useDispatch();
+
+  const [state, setState] = useReducer(
+    (state, newState) => ({ ...state, ...newState }),
+    {
+      clientId: AuthReducer.clientId,
+      groupId: AuthReducer.groupId,
+      twofa: AddRecipientFormConfig?.twoFA
+        ? AddRecipientFormConfig.twoFA
+        : AuthReducer.twofa,
+      // twofa:   AuthReducer.twofa,
+      sessionId: AuthReducer.sessionId,
+      userID: AuthReducer.userID,
+      nationalities: [],
+      stateCities: [],
+      _showOTPBOX: false,
+      showConfirmAddRecipient: false,
+      isConfirmAddRecipient: false,
+      formData: {},
+      editData: {},
+      verificationToken: "",
+      isOTPVerfied: false,
+      isModalVisible: false,
+      otpType: "RA",
+      recvNickName:"",
+      branchCode: "",
+      bankBranch: "",
+      bankAddress: "",
+      bankState: "",
+      bankCity: "",
+      bankName: "",
+      isSameBank: "N",
+      bankCode: "",
+      bankId: "",
+      bankCountry: "",
+      isSelectedIFSC: false,
+      bankLists: [],
+      cityLists: [],
+      branchLists: [],
+      phoneCodes: [],
+      selectPhoneCodes: false,
+      occupationLists: [],
+      relationshipLists: [],
+      deliveryOptionsList: [],
+      deliveryOption: "",
+      stateLists: [],
+      dob: "",
+      receiverCountryLists: [],
+
+      redirectPage: "",
+      redirectPageState: [],
+    }
+  );
+
+  const hookGetNationality = useHttp(GuestAPI.getNationality);
+  const hookGetCountryPhoneCodes = useHttp(GuestAPI.getCountryPhoneCodes);
+  const hookGetOccupationLists = useHttp(GuestAPI.occupationLists);
+  const hookGetRelationshipLists = useHttp(GuestAPI.relationshipLists);
+  const hookGetDeliveryOptions = useHttp(GuestAPI.deliveryOptions);
+  const hookGetCountryStates = useHttp(GuestAPI.countryStates);
+  const hookGetStateCities = useHttp(GuestAPI.stateCities);
+  const hookGetBankBranchData = useHttp(GuestAPI.bankBranchData);
+  const hookGetReceiverLists = useHttp(ReceiverAPI.receiverLists);
+  const hookGetBankLists = useHttp(ReceiverAPI.bankLists);
+  const hookGetBankStateCities = useHttp(ReceiverAPI.bankStateCities);
+  const hookGebankBranches = useHttp(ReceiverAPI.bankBranches);
+  const hookCheckDuplicateReceiver = useHttp(
+    ReceiverAPI.checkDuplicateReceiver
+  );
+  const hookEditReceiver = useHttp(ReceiverAPI.editReceiver);
+  const hookSendOtp = useHttp(ProfileAPI.sendOTP);
+  const hookAddReceiver = useHttp(ReceiverAPI.addReceiver);
+  const hookGetReceiverCountryLists = useHttp(GuestAPI.receiverCountryList);
+  const hookAddReceiver2 = useHttp(ReceiverAPI.addReceiver2);
+  const hookGetCodes = useHttp(LuluGuestAPI.codesLists);
+
+  useEffect(() => {
+    getReceiverCountryLists();
+  }, []);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(async () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (AuthReducer.recvCountryCode) {
+      if (getProcessingPartner(AuthReducer.sendCountryCode) === "LULU") {
+        getCodesList();
+      } else {
+        getRelationshipLists();
+      }
+      getDeliveryOptions();
+      getNationality();
+      getCoutryCodes();
+      // getOccupationLists();
+      // getRelationshipLists();
+      getStateLists();
+      getStateCityList(AuthReducer.recvCountryCode);
+      form1.setFieldsValue({
+        country: AuthReducer.recvCountryCode,
+      });
+    }
+    // if (state.groupId == "KCB") {
+    //     onChangeNationality("IN")
+    // }
+    // form.setFieldsValue({
+    //     country: "India"
+    // })
+
+    setState({
+      redirectPage: location.state?.fromPage,
+      redirectPageState: location.state?.fromPageState,
+    });
+    // console.log('TWOFA', AddRecipientFormConfig)
+  }, [AuthReducer.recvCountryCode]);
+
+  useEffect(async () => {
+    if (!state.isSelectedIFSC) {
+      getBankList();
+    }
+  }, [state.isSelectedIFSC]);
+
+  const getCodesList = async () => {
+    let payload = {
+      requestType: "LULUGETCODES",
+      userId: AuthReducer.userID,
+    };
+    hookGetCodes.sendRequest(payload, function (data) {
+      if (data.status === "S") {
+        let resultData = JSON.parse(data?.resultData?.data);
+        setState({ relationshipLists: resultData?.relationships });
+      }
+    });
+  };
+
+  const getReceiverCountryLists = (sendCountryCode, sendCurrencyCode) => {
+    const payload = {
+      requestType: "RECVCOUNTRYLIST",
+      sendCountry: sendCountryCode
+        ? sendCountryCode
+        : AuthReducer.sendCountryCode,
+      sendCurrency: sendCurrencyCode
+        ? sendCurrencyCode
+        : AuthReducer.sendCurrencyCode,
+    };
+
+    setSpin((prevState) => prevState + 1);
+    hookGetReceiverCountryLists.sendRequest(payload, function (data) {
+      setSpin((prevState) => prevState - 1);
+      if (data.status === "S") {
+        const recvCountryArray = data.responseData;
+        setState({ receiverCountryLists: recvCountryArray });
+        if (recvCountryArray.length === 1) {
+          dispatch(setRecvCurrencyCode(recvCountryArray[0].recvCurrency));
+          dispatch(setRecvCountryCode(recvCountryArray[0].recvCountry));
+        }
+      }
+    });
+  };
+
+  const getNationality = async () => {
+    const payload = {
+      requestType: "NATIONALITYLIST",
+      keyword: "",
+    };
+
+    setSpin((prevState) => prevState + 1);
+    hookGetNationality.sendRequest(payload, function (data) {
+      setSpin((prevState) => prevState - 1);
+      if (data.status == "S") {
+        setState({ nationalities: data.responseData });
+      } else {
+        notification.error({ message: data.errorMessage });
+      }
+    });
+  };
+
+  const getCoutryCodes = async () => {
+    if (AuthReducer.groupId === "XR") {
+      setState({
+        phoneCodes: [
+          { countryPhoneCode: 44, countryName: "United Kingdom" },
+          { countryPhoneCode: 91, countryName: "India" },
+        ],
+        selectPhoneCodes: true,
+      });
+    } else {
+      const payload = {
+        requestType: "COUNTRYPHONECODE",
+      };
+      setSpin((prevState) => prevState + 1);
+      hookGetCountryPhoneCodes.sendRequest(payload, function (data) {
+        setSpin((prevState) => prevState - 1);
+
+        if (data.status == "S") {
+          let _recvCountryCode = data.responseData.filter(
+            (item) => item.countryCode === AuthReducer.recvCountryCode
+          );
+
+          setState({
+            phoneCodes: data.responseData,
+            selectPhoneCodes: false,
+            // mobileCountryCode: _recvCountryCode[0].countryPhoneCode,
+          });
+          form1.setFieldsValue({
+            mobileCountryCode: _recvCountryCode[0].countryPhoneCode,
+          });
+        }
+      });
+    }
+  };
+
+  const getRelationshipLists = async () => {
+    let payload = {
+      requestType: "RELAIONSHIPLISTS",
+    };
+
+    setSpin((prevState) => prevState + 1);
+    hookGetRelationshipLists.sendRequest(payload, function (data) {
+      setSpin((prevState) => prevState - 1);
+      if (data.status == "S") {
+        setState({ relationshipLists: data.responseData });
+      }
+    });
+  };
+
+  const getDeliveryOptions = async () => {
+    let payload = {
+      requestType: "RECVMODE",
+      countryCode: AuthReducer.recvCountryCode,
+    };
+    setSpin((prevState) => prevState + 1);
+    hookGetDeliveryOptions.sendRequest(payload, function (data) {
+      setSpin((prevState) => prevState - 1);
+      if (data.status === "S") {
+        setState({ deliveryOptionsList: data.responseData });
+      }
+    });
+  };
+
+  const getStateLists = async () => {
+    let payload = {
+      requestType: "STATELIST",
+      countryCode: AuthReducer.recvCountryCode,
+      keyword: "",
+    };
+    setSpin((prevState) => prevState + 1);
+    hookGetCountryStates.sendRequest(payload, function (data) {
+      setSpin((prevState) => prevState - 1);
+      if (data.status === "S") {
+        setState({ stateLists: data.responseData });
+      }
+    });
+  };
+
+  const getStateCityList = async (countryCode, stateCode = "") => {
+    const payload = {
+      requestType: "CITILIST",
+      keyword: "",
+      countryCode: countryCode,
+      stateCode: stateCode,
+    };
+
+    setSpin((prevState) => prevState + 1);
+    hookGetStateCities.sendRequest(payload, function (data) {
+      setSpin((prevState) => prevState - 1);
+      if (data.status == "S") {
+        setState({ stateCities: data.responseData });
+      } else {
+        notification.error({ message: data.errorMessage });
+        setState({ stateCities: [] });
+        if (isICICI) {
+          form.setFieldsValue({ cist: null });
+        } else {
+          form1.setFieldsValue({ cist: null });
+        }
+      }
+    });
+  };
+
+  const onChangeIFSCCode = async (e) => {
+    if (e.target.value.length == 11) {
+      const payload = {
+        requestType: "BANKBRANCHDATA",
+        branchCode: e.target.value,
+      };
+
+      setSpin((prevState) => prevState + 1);
+      hookGetBankBranchData.sendRequest(payload, function (data) {
+        setSpin((prevState) => prevState - 1);
+        if (data.status == "S") {
+          notification.success({ message: data.message });
+          setState({
+            branchCode: data.branchCode,
+            bankBranch: data.bankBranch,
+            bankAddress: data.bankAddress,
+            bankState: data.bankState,
+            bankCity: data.bankCity,
+            bankName: data.bankName,
+            bankId: data.bankId,
+            bankCountry: data.bankCountry,
+          });
+        } else {
+          // notification.error({ message: res.data.errorMessage });
+          form1.setFields([{ name: "IFSCCode", errors: [data.errorMessage] }]);
+          setState({
+            branchCode: "",
+            bankBranch: "",
+            bankAddress: "",
+            bankState: "",
+            bankCity: "",
+            bankName: "",
+            bankId: "",
+            bankCountry: "",
+          });
+        }
+      });
+    } else {
+      setState({
+        branchCode: "",
+        bankBranch: "",
+        bankAddress: "",
+        bankState: "",
+        bankCity: "",
+        bankName: "",
+        bankId: "",
+        bankCountry: "",
+      });
+    }
+  };
+
+  const getBankList = async (e) => {
+    const payload = {
+      requestType: "BANKLIST",
+      countryCode: AuthReducer.recvCountryCode,
+      userId: state.userID,
+    };
+
+    setSpin((prevState) => prevState + 1);
+    hookGetBankLists.sendRequest(payload, function (data) {
+      setSpin((prevState) => prevState - 1);
+      if (data.status === "S") {
+        setState({
+          bankLists: data.responseData,
+        });
+      }
+    });
+  };
+
+  const onSelectBank = async (row) => {
+    const bankName = row.value;
+    let bankCode = row.label.props.bankCode;
+    let isSameBank = row.label.props.isSameBank;
+    setState({
+      bankName: bankName,
+      bankCode: bankCode,
+      isSameBank: isSameBank,
+    });
+    if (AuthReducer.recvCountryCode === "IN") {
+      form1.setFieldsValue({ cityName: undefined, branch: undefined });
+      const payload = {
+        requestType: "BankStateCities",
+        countryCode: AuthReducer.recvCountryCode,
+        state: "",
+        bankName: bankName,
+        search: "",
+      };
+
+      setSpin((prevState) => prevState + 1);
+      hookGetBankStateCities.sendRequest(payload, function (data) {
+        setSpin((prevState) => prevState - 1);
+        if (data.status === "S") {
+          setState({
+            cityLists: data.responseData,
+          });
+        }
+      });
+    }
+  };
+
+  const onSelectCity = async (cityName) => {
+    setState({ bankCity: cityName });
+    const payload = {
+      requestType: "BANKBRANCHES",
+      countryCode: AuthReducer.recvCountryCode,
+      bankCode: state.bankCode,
+      bankName: state.bankName,
+      cityCode: "",
+      stateCode: "",
+      city: cityName,
+      keyword: "",
+    };
+
+    setSpin((prevState) => prevState + 1);
+    hookGebankBranches.sendRequest(payload, function (data) {
+      setSpin((prevState) => prevState - 1);
+      if (data.status === "S") {
+        setState({
+          branchLists: data.responseData,
+        });
+      }
+    });
+  };
+
+  const onSelectBranch = async (value) => {
+    let branch = JSON.parse(value);
+    console.log(branch);
+    setState({
+      branchCode: branch.branchCode,
+      bankBranch: branch.branchName,
+      bankAddress: branch.bankAddress,
+      bankState: branch.bankState,
+      bankCity: branch.bankCity,
+      bankName: branch.bankName,
+      bankId: branch.bankId,
+      bankCountry: branch.bankCountry,
+
+      // bankCode: bankCode,
+      // branchName: branchName
+    });
+
+    form1.setFieldsValue({
+      branchCode: branch.branchCode,
+    });
+    // bankAddress: "HDFC BANK LTD WORD NO.7, A.T.ROAD NEAR MALIGAON CHARIYALI GUWAHATI"
+    // bankCity: "GUWAHATI"
+    // bankCode: "HDFC"
+
+    // bankCountry: "IN"
+    // bankName: "HDFC BANK LTD"
+    // bankState: "ASSAM"
+    // branchCode: "HDFC0002282"
+    // branchName: "MALIGAON"
+  };
+
+  const onFinish = async (value) => {
+    form.setFields([{ name: "accountNo", errors: [] }]);
+    setState({recvNickName:value.nickName})
+    let clientID;
+    if (getProcessingPartner(AuthReducer.sendCountryCode) === "VIAMERICAS") {
+      clientID = {
+        clientId: "VIAMERICAS",
+      };
+    }
+    let _relationship;
+    if (getProcessingPartner(AuthReducer.sendCountryCode) === "LULU") {
+      _relationship = {
+        relationship: state?.relationshipDesc,
+        recvRefNo: state?.relationshipValue,
+      };
+    } else {
+      _relationship = {
+        relationship: "SELF",
+      };
+    }
+    let formData = {
+      ...clientID,
+      ..._relationship,
+      requestType: "RECEIVERADD",
+      receiverType: "INDIVIDUAL",
+      firstName: value.firstName,
+      middleName: "",
+      lastName: value.lastName,
+      nickName: value.nickName,
+      accountNo: value.accountNo,
+
+      gender: "M",
+      dob: state.dob ? state.dob : "",
+
+      address1: value.address1 ? value.address1 : "Shadol,Madha Pradesh",
+      // address2: value.address2 ? value.address2 : "bhopal",
+      address2: "",
+      zipCode: value.zipcode ? value.zipcode : "504136",
+      state: value.state ? value.state : "M.P",
+      stateOther: "",
+      city: value.city,
+      // nationality: value.nationality,
+      cityOther: "",
+      emailId: value.emailId ? value.emailId : "test@test.com",
+
+      mobileCountryCode: value.mobileCountryCode ? value.mobileCountryCode : "",
+      mobileNo: value.mobileNo ? value.mobileNo : "",
+
+      altPhone: "",
+      fax: "",
+
+      IFSCCode: isICICI == true ? "" : value.IFSCCode,
+      recvMode: value.deliveryOptions ? value.deliveryOptions : "DC",
+      accountHolderName: `${value.firstName} ${value.lastName}`,
+
+      accountType: "S",
+      bankName: isICICI == true ? "ICICI BANK LTD" : state.bankName,
+      branchCode: isICICI == true ? "ICICI0000123" : state.branchCode,
+      // bankBranch: "GUJARAT", //isICICI == true ? "GUJARAT" : state.bankBranch,
+      bankBranch: isICICI == true ? "GUJARAT" : state.bankBranch,
+
+      bankAddress: isICICI == true ? "GUAJRAT" : state.bankAddress,
+      bankState: isICICI == true ? "GUJARAT" : state.bankState,
+      bankCity: isICICI == true ? "BHARDRAVAD" : state.bankCity,
+
+      nearestBranchCode: "",
+      nearestBranch: "",
+      recvUniqueIdType: "",
+      recvUniqueIdValue: "",
+
+      interBankCode: "",
+      interBank: "",
+      interAccountNo: "",
+      interAccountType: "",
+      interBranchCode: "",
+      interBankBranch: "",
+      interBankAddress: "",
+      interBankCountry: "",
+
+      recvCountry: AuthReducer.recvCountryCode,
+      recvCurrency: AuthReducer.recvCurrencyCode,
+      purpose: "",
+      purposeCode: "",
+      // purpose: "SAVINGS",
+      // purposeCode: "P1301",
+
+      remark: "",
+      // isSameBank: isICICI ? "Y" : "N",
+      // isSameBank: state.isSameBank,
+      isSameBank: "N",
+      twofa: state.twofa,
+      userId: state.userID,
+    };
+
+    if (AuthReducer.recvCountryCode === "NP") {
+      formData.bankState = AuthReducer.recvCountryCode;
+      formData.bankCity = AuthReducer.recvCountryCode;
+
+      // formData.swiftCode = value.swiftCode;
+      formData.recvUniqueIdValue = value.bankCode;
+      formData.bankBranch = state.bankName;
+      formData.branchCode = "00000A";
+    }
+
+    setSpin((prevState) => prevState + 1);
+    if (getProcessingPartner(AuthReducer.sendCountryCode) === "LULU") {
+      hookAddReceiver2.sendRequest(formData, function (data) {
+        setSpin((prevState) => prevState - 1);
+        if (data.status == "S") {
+          notification.success({ message: data.message });
+
+          // LOGIC
+          if (props.type && props.type === "MODAL") {
+            props.setVisible(false);
+            props.accountsList();
+          }
+          // END
+          if (state.redirectPage === "NEW_TRANSACTION") {
+            navigate("/new-transaction", { state: state.redirectPageState });
+          } else {
+            navigate("/my-recipient");
+          }
+        } else {
+          notification.error({ message: data.errorMessage });
+          let errors = [];
+          data.errorList.forEach((error, i) => {
+            notification.error({ message: error.error });
+            let errorData = {
+              name: error.field,
+              errors: [error.error],
+            };
+            errors.push(errorData);
+          });
+
+          if (errors.length > 0) form.setFields(errors);
+        }
+      });
+    } else {
+      hookCheckDuplicateReceiver.sendRequest(formData, function (data) {
+        setSpin((prevState) => prevState - 1);
+        if (data.status == "S") {
+          setState({ formData: formData, showConfirmAddRecipient: true });
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          notification.error({ message: data.errorMessage });
+          if (data.errorList) {
+            let errors = [];
+            data.errorList.forEach((error, i) => {
+              let errorData = {
+                name: error.field,
+                errors: [error.error],
+              };
+              errors.push(errorData);
+            });
+
+            if (errors.length > 0) form1.setFields(errors);
+          }
+        }
+      });
+    }
+  };
+
+  const onClickConfirmAddRecipientAndSendOTP = async () => {
+    if (state.twofa === "Y") {
+      const payload = {
+        requestType: "SENDOTP",
+        otpType: state.otpType,
+        userId: state.userID,
+        otpOption: "SM",
+      };
+
+      setSpin((prevState) => prevState + 1);
+      hookSendOtp.sendRequest(payload, function (data) {
+        setSpin((prevState) => prevState - 1);
+        if (data.status == "S") {
+          notification.success({ message: data.message });
+          setState({
+            verificationToken: data.verificationToken,
+            _showOTPBOX: true,
+            isModalVisible: true,
+          });
+        } else {
+          notification.error({ message: data.errorMessage });
+        }
+      });
+    } else {
+      saveReceiver("");
+    }
+  };
+
+  const saveReceiver = async (verifiedToken) => {
+    var postData = state.formData;
+    state.formData.verifiedToken = verifiedToken;
+    setSpin((prevState) => prevState + 1);
+    hookAddReceiver.sendRequest(postData, function (data) {
+      setSpin((prevState) => prevState - 1);
+      if (data.status == "S") {
+        notification.success({ message: data.message });
+
+        // LOGIC
+        if (props.type && props.type === "MODAL") {
+          props.setVisible(false);
+          props.accountsList();
+        }
+        // END
+          // navigate("/new-transaction", { state: state.redirectPageState });
+          getReceiverLists();
+         
+      } else {
+        notification.error({ message: data.errorMessage });
+        let errors = [];
+        data.errorList.forEach((error, i) => {
+          notification.error({ message: error.error });
+          let errorData = {
+            name: error.field,
+            errors: [error.error],
+          };
+          errors.push(errorData);
+        });
+
+        if (errors.length > 0) form.setFields(errors);
+      }
+    });
+  };
+  const getReceiverLists = () => {
+    const payload = {
+      requestType: "GETRECVLIST",
+      userId: state.userID,
+      favouriteFlag: "",
+      startIndex: "0",
+      recordsPerRequest: "",
+      search: "",
+      statusFlag: "",
+    };
+    setSpin((prevState) => prevState + 1);
+    hookGetReceiverLists.sendRequest(payload, function (data) {
+      setSpin((prevState) => prevState - 1);
+      if (data.status == "S") {
+        let newReceiver = data.responseData.filter((i) => {
+          return i.nickName == state.recvNickName.toUpperCase();
+        });
+
+        let newRecv = JSON.stringify(newReceiver[0]);
+        // props.setState({ autofillRecv: newRecv });
+        if (location?.state?.autoFill) {
+          navigate("/new-transaction", {
+            state: {
+              fromPageState: {
+                ...state.redirectPageState,
+                recipient: newRecv,
+                // purpose: JSON.stringify(_purpose),
+              },
+              autoFill: location?.state?.autoFill,
+            },
+          });
+        }else {
+          navigate("/my-recipient");
+        }
+
+
+      } else {
+        notification.error({ message: data.errorMessage?data.errorMessage:"Get receiver list failed" });
+      }
+    });
+  };
+
+  const onChangeDeliveryOptionHandler = (value) => {
+    let bankName = "";
+    if (value === "VOOMA") {
+      bankName = "Vooma Wallet";
+    }
+    if (value === "MPESA") {
+      bankName = "MPesa Wallet";
+    }
+    setState({
+      deliveryOption: value,
+      bankName: bankName,
+    });
+  };
+
+  const onSelectRecvCountry = (value, e) => {
+    dispatch(setRecvCurrencyCode(e["data-currency"]));
+    dispatch(setRecvCountryCode(value));
+    // props.setState({
+    //   recvCountryCode: val,
+    //   recvCurrencyCode: COUNTRY[val].countryCurrency,
+    // });
+    // setState({ ifscFormRadio: false }); //to disable incorrect ifsc message
+    // props.newForm.setFieldsValue({
+    //   branch: "",
+    //   cityName: "",
+    //   bankState: "",
+    //   bankName: "",
+    //   IFSCCode: "",
+    //   deliveryOption: "",
+    // });
+  };
+
+  return (
+    <div>
+      {/* <button onClick={(e)=> {
+         navigate("/new-transaction", { state: state.redirectPageState });
+      }}>test</button> */}
+      {/* <div className="p-2 inner_title_wrapper">
+        <div className="container">
+          <h2 className="mb-0 inner_title">
+            {!state.showConfirmAddRecipient
+              ? "Add Recipients"
+              : "Recipient Details Summary"}
+            {state.mobileCountryCode}
+          </h2>
+        </div>
+      </div> */}
+
+      {state._showOTPBOX && (
+        <OTPBox
+          state={state}
+          setState={setState}
+          saveReceiver={saveReceiver}
+          otpType={state.otpType}
+          useFor="addRecipient"
+          appState={props.appState}
+        />
+      )}
+
+      <Spin spinning={spin === 0 ? false : true} delay={500}>
+        {!state.showConfirmAddRecipient ? (
+          <Row className="justify-content-center ">
+            <Col>
+              <div className="">
+                <Form
+                  form={form1}
+                  onFinish={onFinish}
+                  // initialValues={{
+                  //   mobileCountryCode: state.mobileCountryCode,
+                  // }}
+                >
+                  <Row className="justify-content-start">
+                    <Col md={12}>
+                      <div className="">
+                        <label className="form-label">
+                          <span className="red_ast">*</span>Receiver Country
+                        </label>
+                        <CustomInput
+                          className="form-item"
+                          label="Receiver Country"
+                          type="select"
+                          showLabel={false}
+                          name="country"
+                          placeholder="Select Delivery Options"
+                          onChange={onSelectRecvCountry}
+                          // showSearch
+                          required
+                        >
+                          {state.receiverCountryLists.map((value, i) => {
+                            return (
+                              <Option
+                                key={i}
+                                data-currency={value.recvCurrency}
+                                value={value.recvCountry}
+                              >
+                                {value.countryName}
+                              </Option>
+                            );
+                          })}
+                        </CustomInput>
+                      </div>
+                    </Col>
+
+                    <h4 className="mb-3">Receiver Bank Details</h4>
+                    <Col md={12}>
+                      <div className="">
+                        <label className="form-label">
+                          <span className="red_ast">*</span>Delivery Options
+                        </label>
+                        <CustomInput
+                          className="form-item"
+                          label="Delivery Options"
+                          type="select"
+                          showLabel={false}
+                          name="deliveryOptions"
+                          placeholder="Select Delivery Options"
+                          onChange={onChangeDeliveryOptionHandler}
+                          // showSearch
+                          required
+                        >
+                          {state.deliveryOptionsList.map((value, i) => {
+                            return (
+                              <Option key={i} value={value.recvModeCode}>
+                                {value.recvMode}
+                              </Option>
+                            );
+                          })}
+                        </CustomInput>
+                      </div>
+                    </Col>
+
+                    {state.deliveryOption === "DC" && (
+                      <>
+                        <BankComponent
+                          getBankList={getBankList}
+                          onChangeIFSCCode={onChangeIFSCCode}
+                          onSelectBank={onSelectBank}
+                          onSelectCity={onSelectCity}
+                          onSelectBranch={onSelectBranch}
+                          state={state}
+                          setState={setState}
+                        />
+                        <Row className="justify-content-center">
+                          <Col md={6}>
+                            <div className="">
+                              <label className="form-label">
+                                <span className="red_ast">*</span>Account Number
+                              </label>
+                              <CustomInput
+                                className="form-item"
+                                label="Account Number"
+                                showLabel={false}
+                                name="accountNo"
+                                type="password"
+                                placeholder="Enter your Account Number"
+                                autoComplete="new-password"
+                                maxLength={40}
+                                validationRules={[
+                                  ...inputValidations.accountNumber(
+                                    AuthReducer.recvCountryCode,
+                                    AuthReducer.groupId
+                                  ),
+                                ]}
+                                onPaste={(e) => {
+                                  e.preventDefault();
+                                  return false;
+                                }}
+                                onCopy={(e) => {
+                                  e.preventDefault();
+                                  return false;
+                                }}
+                                visibilityToggle={false}
+                                required
+                              />
+                            </div>
+                          </Col>
+                          <Col md={6}>
+                            <div className="">
+                              <label className="form-label">
+                                <span className="red_ast">*</span>Confirm
+                                Account Number
+                              </label>
+                              <CustomInput
+                                className="form-item"
+                                label="Confirm Account Number"
+                                showLabel={false}
+                                name="accConNum"
+                                type="text"
+                                placeholder="Enter your Confirm Account Number"
+                                maxLength={20}
+                                required
+                                validationRules={[
+                                  ({ getFieldValue }) => ({
+                                    validator(rule, value) {
+                                      if (
+                                        !value ||
+                                        getFieldValue("accountNo") === value
+                                      ) {
+                                        return Promise.resolve();
+                                      }
+                                      return Promise.reject(
+                                        "The two account number that you entered do not match!"
+                                      );
+                                    },
+                                  }),
+                                ]}
+                                onPaste={(e) => {
+                                  e.preventDefault();
+                                  return false;
+                                }}
+                                onCopy={(e) => {
+                                  e.preventDefault();
+                                  return false;
+                                }}
+                              />
+                            </div>
+                          </Col>
+                        </Row>
+                      </>
+                    )}
+
+                    {state.deliveryOption === "VOOMA" ||
+                    state.deliveryOption === "MPESA" ? (
+                      <>
+                        <Col md={6}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>Wallet Mobile
+                              Number
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              label="Wallet Mobile Number"
+                              showLabel={false}
+                              type="password"
+                              name="accountNo"
+                              placeholder="Enter your Wallet Mobile Number"
+                              min={12}
+                              max={12}
+                              maxLength={12}
+                              onPaste={(e) => {
+                                e.preventDefault();
+                                return false;
+                              }}
+                              onCopy={(e) => {
+                                e.preventDefault();
+                                return false;
+                              }}
+                              visibilityToggle={false}
+                            />
+
+                            {/* <Form.Item
+                              className="form-item"
+                              name="accountNo"
+                              rules={[
+                                {
+                                  required: true,
+                                  message: "Please input your Mobile Number.",
+                                },
+                                {
+                                  min: 8,
+                                  max: 16,
+                                  message: "Mobile Number should be between 8 to 16 digits",
+                                },
+                                {
+                                  pattern: /^[0-9\b]+$/,
+                                  message: "Only Numbers allowed",
+                                },
+                                // {
+                                //   min: 12,
+                                //   max: 12,
+                                //   message: "Account number must be 12 digit.",
+                                // },
+                              ]}
+                            >
+                              <Input.Password
+                                placeholder="Enter your Wallet Mobile Number"
+                                maxLength={12}
+                                onPaste={(e) => {
+                                  e.preventDefault();
+                                  return false;
+                                }}
+                                onCopy={(e) => {
+                                  e.preventDefault();
+                                  return false;
+                                }}
+                                visibilityToggle={false}
+                              />
+                            </Form.Item> */}
+                          </div>
+                        </Col>
+                        <Col md={6}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>Confirm Wallet
+                              Mobile Number
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              name="accConNum"
+                              min={8}
+                              max={16}
+                              required
+                              placeholder="Enter your Confirm Wallet Mobile Number"
+                              maxLength={12}
+                              onPaste={(e) => {
+                                e.preventDefault();
+                                return false;
+                              }}
+                              onCopy={(e) => {
+                                e.preventDefault();
+                                return false;
+                              }}
+                              validationRules={[
+                                ({ getFieldValue }) => ({
+                                  validator(rule, value) {
+                                    if (
+                                      !value ||
+                                      getFieldValue("accountNo") === value
+                                    ) {
+                                      return Promise.resolve();
+                                    }
+                                    return Promise.reject(
+                                      "The two account number that you entered do not match!"
+                                    );
+                                  },
+                                }),
+                              ]}
+                            />
+
+                            {/* <Form.Item
+                              className="form-item"
+                              name="accConNum"
+                              rules={[
+                                {
+                                  required: true,
+                                  message: "Please input your Confirm  Mobile Number.",
+                                },
+                                {
+                                  min: 8,
+                                  max: 16,
+                                  message: "Mobile Number should be between 8 to 16 digits",
+                                },
+                                {
+                                  pattern: /^[0-9\b]+$/,
+                                  message: "Only Numbers allowed",
+                                },
+                                ({ getFieldValue }) => ({
+                                  validator(rule, value) {
+                                    if (!value || getFieldValue("accountNo") === value) {
+                                      return Promise.resolve();
+                                    }
+                                    return Promise.reject("The two account number that you entered do not match!");
+                                  },
+                                }),
+                              ]}
+                            >
+                              <Input
+                                placeholder="Enter your Confirm Wallet Mobile Number"
+                                maxLength={12}
+                                onPaste={(e) => {
+                                  e.preventDefault();
+                                  return false;
+                                }}
+                                onCopy={(e) => {
+                                  e.preventDefault();
+                                  return false;
+                                }}
+                              />
+                            </Form.Item> */}
+                          </div>
+                        </Col>
+                      </>
+                    ) : (
+                      ""
+                    )}
+
+                    <h4 className="mb-3">Receiver Personal Details</h4>
+                    <Col md={4}>
+                      <div className="">
+                        <label className="form-label">
+                          <span className="red_ast">*</span>First Name
+                        </label>
+                        <CustomInput
+                          className="form-item"
+                          name="firstName"
+                          label="First Name"
+                          showLabel={false}
+                          type="text"
+                          placeholder="Enter your First Name"
+                          min={3}
+                          max={40}
+                          required
+                        />
+                      </div>
+                    </Col>
+                    <Col md={4}>
+                      <div className="">
+                        <label className="form-label">
+                          <span className="red_ast">*</span>Last Name
+                        </label>
+                        <CustomInput
+                          className="form-item"
+                          name="lastName"
+                          label="Last Name"
+                          showLabel={false}
+                          type="text"
+                          placeholder="Enter your Last Name"
+                          min={3}
+                          max={40}
+                          required
+                        />
+                      </div>
+                    </Col>
+
+                    <Col md={4}>
+                      <div className="">
+                        <label className="form-label">
+                          <span className="red_ast">*</span>Nick Name
+                        </label>
+
+                        <CustomInput
+                          className="form-item"
+                          name="nickName"
+                          label="Nick Name"
+                          showLabel={false}
+                          type="text"
+                          placeholder="Enter your Nick Name"
+                          min={3}
+                          max={40}
+                          required
+                        />
+                      </div>
+                    </Col>
+
+                    {(state.groupId === "CGPN" || state.groupId === "C2R" ||
+                      getProcessingPartner(AuthReducer.sendCountryCode) ===
+                        "LULU") && (
+                      <>
+                        <Col md={4}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>Address
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              name="address1"
+                              min={3}
+                              max={100}
+                              placeholder="Enter Address 1"
+                              type="text"
+                              required
+                              label="Address1"
+                              showLabel={false}
+                            />
+                          </div>
+                        </Col>
+
+                        {/* <Col md={3}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>Address 2
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              name="address2"
+                              min={3}
+                              max={100}
+                              placeholder="Enter Address 2"
+                              type="text"
+                              required
+                              label="Address2"
+                              showLabel={false}
+                            />
+                          </div>
+                        </Col> */}
+
+                        <Col md={3}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>State
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              name="state"
+                              label="State"
+                              showLabel={false}
+                              required
+                              type="select"
+                              placeholder="Select State"
+                              onChange={(value) => {
+                                getStateCityList(
+                                  AuthReducer.recvCountryCode,
+                                  value
+                                );
+                              }}
+                              showSearch
+                            >
+                              {state.stateLists.map((state, i) => {
+                                return (
+                                  <Option key={i} value={state.stateCode}>
+                                    {state.state}
+                                  </Option>
+                                );
+                              })}
+                            </CustomInput>
+                          </div>
+                        </Col>
+
+                        <Col md={3}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>City
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              name="city"
+                              label="City"
+                              type="select"
+                              showLabel={false}
+                              required
+                              placeholder="Select City"
+                              showSearch
+                            >
+                              {state.stateCities.map((city, i) => {
+                                return (
+                                  <Option key={i} value={city.city}>
+                                    {city.city}
+                                  </Option>
+                                );
+                              })}
+                            </CustomInput>
+                          </div>
+                        </Col>
+                        <Col md={2}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>Zipcode
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              name="zipcode"
+                              placeholder="Enter Zipcode"
+                              type="text"
+                              required
+                              label="Zipcode"
+                              validationRules={[
+                                ...inputValidations.zipCode(
+                                  AuthReducer.recvCountryCode
+                                ),
+                              ]}
+                              showLabel={false}
+                            />
+                          </div>
+                        </Col>
+                      </>
+                    )}
+
+                    {(state.groupId === "CGPN" || state.groupId === "C2R" || 
+                      getProcessingPartner(AuthReducer.sendCountryCode) ===
+                        "LULU") && (
+                      <>
+                        <Col md={4}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>Relationship
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              name="relationship"
+                              label="Relationship"
+                              showLabel={false}
+                              required
+                              type="select"
+                              placeholder="Select Relationship"
+                              showSearch
+                              onChange={(v) => {
+                                let value = JSON.parse(v);
+                                if (
+                                  getProcessingPartner(
+                                    AuthReducer.sendCountryCode
+                                  ) === "LULU"
+                                ) {
+                                  setState({
+                                    relationshipValue: value.code,
+                                    relationshipDesc: value.name,
+                                  });
+                                } else {
+                                  setState({
+                                    relationshipValue: value.relationshipValue,
+                                    relationshipDesc: value.relationshipDesc,
+                                  });
+                                }
+                              }}
+                            >
+                              {state.relationshipLists.map((list, i) => {
+                                return (
+                                  <Option key={i} value={JSON.stringify(list)}>
+                                    {getProcessingPartner(
+                                      AuthReducer.sendCountryCode
+                                    ) === "LULU"
+                                      ? list.name
+                                      : list.relationshipDesc}
+                                  </Option>
+                                );
+                              })}
+                            </CustomInput>
+                          </div>
+                        </Col>
+                        {/* <Col md={12}>
+                            <Row className="justify-content-center">
+                              <Col md={6}>
+                                <div className="">
+                                  <label className="form-label">
+                                    Area Code (Optional)
+                                  </label>
+                                  <Form.Item
+                                    className="form-item"
+                                    name="areaCode"
+                                  >
+                                    <Input
+                                    
+                                      placeholder="Enter your Area Code"
+                                    />
+                                  </Form.Item>
+                                </div>
+                              </Col>
+                              <Col md={6}>
+                                <div className="">
+                                  <label className="form-label">
+                                    Phone/Landline Number (Optional)
+                                  </label>
+                                  <Form.Item
+                                    className="form-item"
+                                    name="landLineNumber"
+                                  >
+                                    <Input
+                                    
+                                      placeholder="Enter your Phone/Landline Number"
+                                    />
+                                  </Form.Item>
+                                </div>
+                              </Col>
+                            </Row>
+                          </Col> */}
+
+                        <Col md={4}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>Date Of Birth
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              name="dob"
+                              label="Date of Birth"
+                              showLabel={false}
+                              required
+                            >
+                              <DatePicker
+                                className="w-100"
+                                defaultPickerValue={moment().subtract(
+                                  18,
+                                  "years"
+                                )}
+                                disabledDate={(d) =>
+                                  !d ||
+                                  d.isAfter(moment().subtract(18, "years")) ||
+                                  d.isSameOrBefore("1900-01-01")
+                                }
+                                onChange={(value, dateString) => {
+                                  value !== null
+                                    ? setState({ dob: dateString })
+                                    : setState({ dob: "" });
+                                }}
+                              />
+                            </CustomInput>
+                          </div>
+                        </Col>
+
+                        <Col md={4}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>Email ID
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              name="emailId"
+                              label="Email ID"
+                              showLabel={false}
+                              type="email"
+                              placeholder="Enter Email ID"
+                              required
+                            />
+                          </div>
+                        </Col>
+                      </>
+                    )}
+
+                    <Col md={12}>
+                      <Row className="justify-content-center">
+                        <Col md={3}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>Country Code
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              name="mobileCountryCode"
+                              placeholder="Select Country Code"
+                              disabled={!state.selectPhoneCodes}
+                              type="select"
+                              required
+                              label="Country Code"
+                              showLabel={false}
+                            >
+                              {state.phoneCodes.map((phoneCode, i) => {
+                                return (
+                                  <Option
+                                    key={i}
+                                    value={phoneCode.countryPhoneCode}
+                                  >{`(${phoneCode.countryPhoneCode}) ${phoneCode.countryName}`}</Option>
+                                );
+                              })}
+                            </CustomInput>
+                          </div>
+                        </Col>
+                        <Col md={4}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>Mobile Number
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              name="mobileNo"
+                              placeholder="123456789"
+                              maxLength={10}
+                              type="text"
+                              required
+                              label="Mobile Number"
+                              showLabel={false}
+                              validationRules={[
+                                ...inputValidations.mobileNumber(
+                                  AuthReducer.recvCountryCode
+                                ),
+                                // { pattern: new RegExp("^[6]{1}[0-9]*$"), message: "Mobile number must start with 6" }
+                              ]}
+                            />
+                          </div>
+                        </Col>
+
+                        <Col md={5}>
+                          <div className="">
+                            <label className="form-label">Phone Number</label>
+                            <CustomInput
+                              className="form-item"
+                              name="landLineNumber"
+                              placeholder="XXXXXXXXX"
+                              maxLength={10}
+                              type="text"
+                              label="Phone Number"
+                              showLabel={false}
+                              validationRules={[
+                                {
+                                  min: 1,
+                                  max: 14,
+                                  message:
+                                    "Phone number must be between 1 to 14 digits.",
+                                },
+                                {
+                                  pattern: /^[0-9\b]+$/,
+                                  message: "Only Numbers allowed",
+                                },
+                              ]}
+                            />
+                          </div>
+                        </Col>
+                      </Row>
+                    </Col>
+
+                    {/* <Col md={4}>
+                      <div className="">
+                        <label className="form-label">
+                          <span className="red_ast">*</span>Nationality
+                        </label>
+                        <CustomInput
+                          className="form-item"
+                          name="nationality"
+                          placeholder="Select Nationality"
+                          showSearch
+                          label="Nationality"
+                          showLabel={false}
+                          required
+                          type="select"
+                        >
+                          {state.nationalities.map((nationality, i) => {
+                            return (
+                              <Option key={i} value={nationality.countryCode}>
+                                {nationality.nationality}
+                              </Option>
+                            );
+                          })}
+                        </CustomInput>
+
+
+                      </div>
+                    </Col> */}
+
+                    {/* {(state.groupId === "KCB" ||
+                      state.groupId === "MF" ||
+                      state.groupId === "CSB") && (
+                      <>
+                        <Col md={6}>
+                          <div className="">
+                            <label className="form-label">
+                              <span className="red_ast">*</span>Country
+                            </label>
+                            <CustomInput
+                              className="form-item"
+                              name="country"
+                              label="Country"
+                              showLabel={false}
+                              type="text"
+                              required
+                              readOnly={true}
+                              placeholder="Enter Country"
+                            />
+                            
+                            
+                          </div>
+                        </Col>
+                      </>
+                    )} */}
+
+                    <Col md={12}>
+                      <div className="d-flex justify-content-end">
+                        <button
+                          className="btn btn-primary-light me-3 my-3"
+                          onClick={() => {
+                            if (state.redirectPage === "NEW_TRANSACTION") {
+                              navigate("/new-transaction", {
+                                state: state.redirectPageState,
+                              });
+                            } else {
+                              navigate("/my-recipient");
+                            }
+                          }}
+                        >
+                          Back
+                        </button>
+                        <button
+                          className="btn btn-primary text-white my-3"
+                          type="submit"
+                          onClick={() => setIsICICI(false)}
+                        >
+                          Review
+                        </button>
+                      </div>
+                    </Col>
+                  </Row>
+                </Form>
+              </div>
+            </Col>
+          </Row>
+        ) : (
+          <Row className="justify-content-center ">
+            <Col lg={8} md={10}>
+              <div className="card p-3 mb-4">
+                <h3 className="text-5 fw-400 d-flex align-items-center my-2">
+                  Recipient's Details
+                  <a
+                    href="#!"
+                    className="ms-auto text-2 text-uppercase btn-link"
+                    onClick={() => setState({ showConfirmAddRecipient: false })}
+                  >
+                    <span className="me-1">
+                      <PencilSquare />
+                    </span>
+                    Edit
+                  </a>
+                </h3>
+                <div></div>
+                <hr className=" mb-4" />
+
+                <div className="row gx-3 align-items-center">
+                  <p className="col-sm-3 text-muted text-sm-end mb-0 mb-sm-3">
+                    First Name:
+                  </p>
+                  <p className="col-sm-9 text-3">
+                    {state.formData.firstName || state.editData.firstName}
+                  </p>
+                </div>
+
+                <div className="row gx-3 align-items-center">
+                  <p className="col-sm-3 text-muted text-sm-end mb-0 mb-sm-3">
+                    Last Name:
+                  </p>
+                  <p className="col-sm-9 text-3">
+                    {state.formData.lastName || state.editData.lastName}
+                  </p>
+                </div>
+
+                {/* {isICICI == false && (
+                  <div className="row gx-3 align-items-center">
+                    <p className="col-sm-3 text-muted text-sm-end mb-0 mb-sm-3">
+                      IFSC Code:
+                    </p>
+                    <p className="col-sm-9 text-3">{state.formData.IFSCCode}</p>
+                  </div>
+                )} */}
+                {isICICI == false && state.deliveryOption === "DC" && (
+                  <div className="row gx-3 align-items-center">
+                    <p className="col-sm-3 text-muted text-sm-end mb-0 mb-sm-3">
+                      Bank Code:
+                    </p>
+                    <p className="col-sm-9 text-3">{state.bankCode}</p>
+                  </div>
+                )}
+
+                <div className="row gx-3 align-items-center">
+                  <p className="col-sm-3 text-muted text-sm-end mb-0 mb-sm-3">
+                    {state.deliveryOption === "VOOMA" ||
+                    state.deliveryOption === "MPESA"
+                      ? "Wallet Mobile Number :"
+                      : "Account Number: "}
+                  </p>
+                  <p className="col-sm-9 text-3">
+                    {state.formData.accountNo || state.editData.accountNo}
+                  </p>
+                </div>
+
+                {/* <div className="row gx-3 align-items-center">
+                  <p className="col-sm-3 text-muted text-sm-end mb-0 mb-sm-3">
+                    Nationality:
+                  </p>
+                  <p className="col-sm-9 text-3">
+                    {state.formData.nationality || state.editData.nationality}
+                  </p>
+                </div> */}
+
+                <div className="row gx-3 align-items-center">
+                  <p className="col-sm-3 text-muted text-sm-end mb-0 mb-sm-3">
+                    City:
+                  </p>
+                  <p className="col-sm-9 text-3">
+                    {state.formData.city || state.editData.city}
+                  </p>
+                </div>
+
+                <div className="d-flex justify-content-end">
+                  {/* <Link to={'/'} className="btn btn-secondary me-3">Back</Link> */}
+                  <button
+                    className="btn btn-secondary me-3 my-3"
+                    type="button"
+                    onClick={() => setState({ showConfirmAddRecipient: false })}
+                  >
+                    Back
+                  </button>
+
+                  <button
+                    className="btn btn-primary text-white my-3"
+                    type="button"
+                    onClick={onClickConfirmAddRecipientAndSendOTP}
+                  >
+                    Confirm Recipient
+                  </button>
+                </div>
+              </div>
+            </Col>
+          </Row>
+        )}
+      </Spin>
+    </div>
+  );
+}
