@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vianex Order Receipt</title>
+</head>
+<body style="font-family: 'avenir', Helvetica, Arial, sans-serif; height: 100%; line-height: 1.5; padding: 0; margin: 0;">
+<table cellpadding="0" cellspacing="0" style="background: #ffffff; border-collapse: collapse; border-bottom: 5px solid #ffffff; height: 100%; margin: 0 auto; max-width: 600px; width: 100%;">
+  <tr>
+    <td width="100">
+    </td>
+    <td width="300">
+    </td>
+    <td width="100">
+    </td>
+    <td width="100">
+    </td>
+  </tr>
+
+  <tr>
+    <td style="background-color: #ffffff; border: none; width: 100%; padding: 25px 51px;"
+        valign="top"
+        colspan="5">
+      <img style="display: block; text-align: center;"
+           src="https://s3.amazonaws.com/cdn.govianex.com/email-templates/logo_vianex.png">
+    </td>
+  </tr>
+
+  <tr>
+    <td style="background-color: #ffffff; border: none; width: 100%; padding: 0 51px 15px; color: #77777a; font-size: 14px; line-height: 1.5;"
+        valign="top"
+        colspan="5">
+      <h1 style="color: #0c5fa3; text-transform: uppercase; font-size: 22px; font-weight: bold; margin: 0 0 15px;">Money Transfer Receipt</h1>
+      <p style="padding: 0; margin: 0;">
+        Dear <strong style="color: #5ab94f;"> {{SENDERFNAME}} </strong>,
+      </p>
+      <strong>Thank you for sending money with Viamericas.</strong>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="background-color: #5ab94f; border: none; width: 100%; padding: 10px 51px; color: #ffffff; font-size: 14px; line-height: 1.5;"
+        valign="top"
+        colspan="5">
+      <p style="margin: 0; padding: 0; font-weight: bold;">
+        Transaction NO.: <span style="font-weight: normal;"> {{TRANSACTIONNUMBER}} </span>
+      </p>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="background-color: #429638; border: none; width: 100%; padding: 10px 51px; color: #ffffff; font-size: 14px; line-height: 1.5;"
+        valign="top"
+        colspan="5">
+      <p style="margin: 0; padding: 0; text-transform: uppercase; font-weight: bold;">
+        PASSWORD: <span style="font-weight: normal;"> {{FOLIONUMBER}} </span>
+      </p>
+      <p style="margin: 0; padding: 0; font-weight: normal;">
+        For payments delivered in cash, remember to provide the recipient <strong>with the password detailed above</strong>.</p>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="background-color: #f8f8f8; border: none; width: 100%; padding: 15px 51px; color: #77777a; font-size: 14px; line-height: 2;"
+        valign="top"
+        colspan="5">
+      <h2 style="margin: 0 0 5px; font-weight: bold; text-transform: uppercase; color: #5ab94f; font-size: 18px;">Transaction Details</h2>
+      <p style="margin: 0; padding: 0; font-weight: bold;">
+        Transaction Date: <span style="color: #5ab94f;"> {{TRANSACTIONDATE}} </span>
+      </p>
+      <p style="margin: 0; padding: 0; font-weight: bold;">
+        Funds Available on: <span style="color: #5ab94f;"> {{FUNDSAVAILABLE}} </span> <span style="font-weight: normal;">/ Maybe available sooner</span>
+      </p>
+      <p style="margin: 0; padding: 0; font-weight: bold;">
+        Payer Network: <span style="color: #5ab94f;"> {{PAYERNETWORK}} </span>
+      </p>
+    </td>
+  </tr>      
+  <tr>
+    <td style="background-color: #f8f8f8; border: none; width: 100%; padding: 15px 51px; color: #77777a; font-size: 14px; line-height: 2;"
+            valign="top"
+            colspan="5">      
+      <p style="margin: 0; padding: 0; font-weight: bold;">
+        Transfer Amount: <span style="color: #5ab94f;"> {{TRANSFERAMOUNT}} {{SENDERCURRENCY}}</span>
+      </p>
+      <p style="margin: 0; padding: 0; font-weight: bold;">
+        Transfer Fees: <span style="color: #5ab94f;"> {{TRANSFERFEES}} {{SENDERCURRENCY}}</span>
+      </p>
+      <p style="margin: 0; padding: 0; font-weight: bold;">
+        Transfer Taxes: <span style="color: #5ab94f;"> {{TRANSFERTAXES}} {{SENDERCURRENCY}}</span>
+      </p>
+      <p style="margin: 0; padding: 0; font-size: 18px; font-weight: bold;">
+        Total Cost: <span style="color: #5ab94f;"> {{TOTALCOST}} {{SENDERCURRENCY}}</span>
+      </p>      
+    </td>
+  </tr>
+  <tr>
+    <td style="background-color: #f8f8f8; border: none; width: 100%; padding: 15px 51px; color: #77777a; font-size: 14px; line-height: 1.5;"
+        valign="top"
+        colspan="5">
+
+    </td>
+  </tr>
+  <tr>
+    <td style="background-color: #f8f8f8; border: none; width: 100%; padding: 15px 51px; color: #77777a; font-size: 14px; line-height: 1.5;"
+        valign="top"
+        colspan="5">
+      <p style="margin: 0; padding: 0; font-weight: bold; color: #0c5fa3;">
+          Exchange Rate: 1 {{SENDERCURRENCY}} = {{EXCHANGERATE}} {{RECIPIENTCURRENCY}}
+      </p>
+
+      <p style="margin: 0; padding: 0; font-size: 18px; font-weight: bold;">
+        Transfer Amount: <span style="color: #5ab94f;"> {{TOTALPAID}}  {{RECIPIENTCURRENCY}}</span>
+      </p>
+
+      <p style="margin: 0; padding: 0; font-weight: bold;">
+        Other Fees: <span style="color: #5ab94f;"> {{PAYOUTFEES}} {{RECIPIENTCURRENCY}}</span>
+      </p>
+
+      <p style="margin: 0; padding: 0; font-size: 18px; font-weight: bold;">
+        Total to Recipient: <span style="color: #5ab94f;"> {{TOTALPAID}} {{RECIPIENTCURRENCY}}</span>
+      </p>
+
+    </td>
+  </tr>
+  <tr>
+    <td style="background-color: #f8f8f8; border: none; width: 100%; padding: 15px 51px; color: #77777a; font-size: 14px; background-size: cover; background-repeat: no-repeat; line-height: 1.5;"
+        valign="top"
+        colspan="5"
+        background="https://s3.amazonaws.com/cdn.govianex.com/email-templates/receipt_background.jpg">
+
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse; height: 100%; margin: 0 auto; max-width: 600px; width: 100%; vertical-align: top;">
+
+        <tr>
+          <td style="width: 100%; background-color: transparent; color: #ffffff; line-height: 1.5; font-size: 20px; font-weight: bold;" valign="top" colspan="5">
+            <div style="background-color: #0c5fa3; border-radius: 6px; color: #ffffff; text-align: center; padding: 20px; font-size: 20px; font-weight: bold; letter-spacing: 1px; margin: 0 auto;">
+              <a href="" style="text-decoration: none; color: #ffffff; background-color: #0c5fa3; font-size: 20px; font-weight: bold;"> Track your transaction</a>
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td style=" border: none; padding: 20px 10px 0 0; width: 50%; background-color: transparent; color: #77777a; font-size: 14px; line-height: 1.5; height: 100%;" valign="top">
+            <div style="background-color: #ffffff; padding: 51px 20px;">
+              <h3 style="text-transform: uppercase; color: #0c5fa3; font-size: 14px; margin: 0 0 5px;">Recipient Information</h3>
+              <strong> {{RECIPIENTNAME}} </strong>
+              <p style="padding: 0; margin: 0; font-weight: normal;"> {{RECIPIENTADDRESS}} </p>
+              <p style="padding: 0; margin: 0; font-weight: normal;"> {{RECIPIENTCITY}} - {{RECIPIENTSTATE}} </p>
+              <p style="padding: 0; margin: 0; font-weight: normal;"> {{RECIPIENTTEL}} </p>
+              <p style="padding: 0; margin: 0; font-weight: normal;"> {{RECIPIENTCOUNTRY}} </p>
+            </div>
+          </td>
+
+          <td style="border: none; padding: 20px 0 0 10px; width: 50%; background-color: transparent; color: #77777a; font-size: 14px; line-height: 1.5; height: 100%;" valign="top">
+            <div style="background-color: #ffffff; padding: 51px 20px;">
+              <h3 style="text-transform: uppercase; color: #0c5fa3; font-size: 14px; margin: 0 0 5px">Sender Information</h3>
+              <strong> {{SENDERNAME}} </strong>
+              <p style="padding: 0; margin: 0; font-weight: normal;"> {{SENDERADDRESS}} </p>
+              <p style="padding: 0; margin: 0; font-weight: normal;"> {{SENDERCITY}} - {{SENDERSTATE}} </p>
+              <p style="padding: 0; margin: 0; font-weight: normal;"> {{SENDERTEL}} </p>
+              <p style="padding: 0; margin: 0; font-weight: normal;"> {{SENDERCOUNTRY}} </p>
+            </div>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="background-color: #0c5fa3; border: none; width: 100%; padding: 15px 51px; color: #ffffff; font-size: 24px; line-height: 1.5; font-weight: bold;"
+        valign="top"
+        colspan="5">
+        THANKS FOR CHOOSING VIANEX!
+    </td>
+  </tr>
+
+  <tr>
+    <td style="background-color: #ffff; border: none; width: 100%; padding: 15px 51px; color: #77777a; font-size: 10px; line-height: 1.5;"
+        valign="top"
+        colspan="5">
+      <p>{{DISCLOSURE}}</p>
+    </td>
+  </tr>
+
+  <tr style="border: none; background-color: #5ab94f; color: #ffffff; font-size: 14px; line-height: 1.5; font-weight: normal; text-align: left;" valign="top">
+    <td style="width: 10%; border: none;"></td>
+    <td style="padding: 20px 0; width: 20%; border: none;" valign="top">
+      <div style="display: block; margin-bottom: 10px;">
+        <a href="https://www.govianex.com/#!/about-us" style="color: #ffffff; text-decoration: none; padding: 0;">
+          About Us
+        </a>
+      </div>
+      <div style="display: block; margin-bottom: 10px;">
+        <a href="https://www.govianex.com/#!/contact-us" style="color: #ffffff; text-decoration: none; padding: 0;">
+          Contact Us
+        </a>
+      </div>
+      <div style="display: block; margin-bottom: 10px;">
+        <a href="https://www.govianex.com/#!/compliance" style="color: #ffffff; text-decoration: none; padding: 0;">
+          Compliance
+        </a>
+      </div>
+    </td>
+    <td style="padding: 20px 0; width: 30%; border: none;" valign="top">
+      <div style="display: block; margin-bottom: 10px;">
+        <a href="https://www.govianex.com/api/legal-documents/privacy-policies/latest/content" style="color: #ffffff; text-decoration: none; padding: 0;">
+          Privacy Policy
+        </a>
+      </div>
+      <div style="display: block; margin-bottom: 10px;">
+        <a href="https://www.govianex.com/#!/file-complaint" style="color: #ffffff; text-decoration: none; padding: 0;">
+          File a Complaint
+        </a>
+      </div>
+      <div style="display: block; margin-bottom: 10px;">
+        <a href="https://www.govianex.com/api/legal-documents/terms-and-conditions/latest/content" style="color: #ffffff; text-decoration: none; padding: 0;">
+          Terms and Conditions
+        </a>
+      </div>
+    </td>
+    <td style="padding: 20px 0; width: 30%; border: none;" valign="top">
+      <div  style="border-left: 1px solid #479F3D; padding-left: 37px;">
+        <div style="display: block; white-space: nowrap; margin-bottom: 10px;">
+          <a href="https://www.facebook.com/ViamericasDigital"><img src="https://s3.amazonaws.com/cdn.govianex.com/email-confirmation-fb-icon_sm.png" style="height: auto; padding-top: 5px; margin: 0; width: 35px;"></a>
+          <a href="https://twitter.com/Viamericas"><img src="https://s3.amazonaws.com/cdn.govianex.com/email-confirmation-tw-icon_sm.png" style="height: auto; padding: 5px 0 0 5px; margin: 0; width: 35px;"></a>
+        </div>
+        <div style="display: block; white-space: nowrap;">
+          <img style="margin-right: 5px;" src="https://s3.amazonaws.com/cdn.govianex.com/email-templates/digicert-certificate.png" width="55" alt="digicert-certificate.png">
+          <img style="margin-left: 5px;" src="https://s3.amazonaws.com/cdn.govianex.com/email-templates/trustwave-certificate.png" alt="trustwave-certificate.png">
+        </div>
+      </div>
+    </td>
+    <td style="width: 10%; border: none;"></td>
+  </tr>
+
+  <tr>
+    <td style="background-color: #ffffff; padding: 20px 0; border: none;" colspan="5"></td>
+  </tr>
+</table>
+
+<!-- fix for Gmail auto-resize -->
+<div style="display: none; font: 15px courier; font-family: 'avenir', Helvetica, Arial, sans-serif; line-height: 0; margin: 0; padding: 0; white-space: nowrap;">
+  &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+  &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+  &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+</div>
+</body>
+</html>
