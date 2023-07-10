@@ -1,0 +1,930 @@
+import { Document, Page, Text } from "@react-pdf/renderer";
+
+export default function PDFFile() {
+  return (
+    <Document>
+      <Page>
+        <Text>Text Test Pdf</Text>
+      </Page>
+    </Document>
+  );
+}
+
+
+
+import React, { useEffect, useReducer, useState } from "react";
+import Main from "../Layouts/Main";
+import BackArrow from "../../../assets/images/click2remit/Back_arrow.svg";
+import Chevronright from "../../../assets/images/click2remit/Chevronright.svg";
+import Searchpng from "../../../assets/images/click2remit/search.png";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { TransactionAPI } from "../../../apis/TransactionAPI";
+import useHttp from "../../../hooks/useHttp";
+import { useSelector } from "react-redux";
+import { notification } from "antd";
+import Spinner from "../../../reusable/Spinner";
+import C2RInvoice from "../user/sendmoney/Invoice/C2R";
+import securekotak from "../../../assets/images/click2remit/securekotak.svg";
+import initial from "../../../assets/images/click2remit/initial.svg";
+import share from "../../../assets/images/click2remit/share.svg";
+import downloadBtn from "../../../assets/images/click2remit/download-btn.svg";
+import CancelIcon from "@mui/icons-material/Cancel";
+
+import { useRef } from "react";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
+import moment from "moment";
+import { VIAmericaTransactionAPI } from "../../../apis/ViAmericaApi/TranscationAPI";
+import Swal from "sweetalert2";
+import { Col, Row } from "react-bootstrap";
+import PDFFile from "../user/sendmoney/Invoice/PDFFile";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+const Transactions = () => {
+  const navigate = useNavigate();
+  const pdfRef = useRef(null);
+  const AuthReducer = useSelector((state) => state.user);
+  const location = useLocation();
+  const [loader, setLoader] = useState(0);
+  const [state, setState] = useReducer((state, newState) => ({ ...state, ...newState }), {
+    transactionLists: [],
+    filteredTransactionLists: [],
+    isStep: 1,
+    transactionData: {},
+    txnReceiptDetail: {},
+    txnStatusFilter: null,
+    txnAmountFilter: null,
+    searchInputValue: "",
+    nameSortFilter: null,
+    durationFilter: null,
+    amountSort: null,
+    recvNameInitials: "",
+    dayfilter: null,
+    filterCard: null,
+  });
+  const hookGetTransactionLists = useHttp(TransactionAPI.transactionLists);
+  const hookTransactionReceiptDetails = useHttp(TransactionAPI.transactionReceiptDetails);
+  const hookCancelTransactions = useHttp(VIAmericaTransactionAPI.cancelTransactions);
+
+  useEffect(() => {
+    getTransactionList();
+  }, []);
+  useEffect(() => {
+    if (location?.state?.fromPage === "NEWTRANSACTION") {
+      transactionReceiptDetails(location?.state?.txnRefNumber);
+    }
+  }, []);
+  useEffect(() => {
+    filterTransactionList();
+  }, [
+    state.txnStatusFilter,
+    state.txnAmountFilter,
+    state.searchInputValue,
+    state.nameSortFilter,
+    state.durationFilter,
+    state.amountSort,
+  ]);
+
+  const filterTransactionList = () => {
+    let filteredTnxList = state.transactionLists;
+    if (state.durationFilter === 0) {
+      filteredTnxList = state.transactionLists.sort((a, b) => {
+        return new Date(b.bookingDate) - new Date(a.bookingDate);
+      });
+    } else if (state.durationFilter === 1) {
+      filteredTnxList = state.transactionLists.sort((a, b) => {
+        return new Date(a.bookingDate) - new Date(b.bookingDate);
+      });
+    }
+    let filteredTnxList0 = filteredTnxList.filter((i) => {
+      if (state.txnAmountFilter === 0) {
+        return i.amount < 1000;
+      } else if (state.txnAmountFilter === 1) {
+        return i.amount > 1000;
+      } else if (state.txnAmountFilter === 2) {
+        return i.amount > 5000;
+      } else if (state.txnAmountFilter === 3) {
+        return i.amount > 7000;
+      } else {
+        return i.amount;
+      }
+    });
+
+    let filteredTnxList1 = filteredTnxList0.filter((i) => {
+      return i.receiverName.toLowerCase().search(state.searchInputValue.toLowerCase()) !== -1;
+    });
+    let filteredTnxList2 = filteredTnxList1;
+    if (state.amountSort === 0) {
+      filteredTnxList2.sort((a, b) => a.amount - b.amount);
+    } else if (state.amountSort === 1) {
+      filteredTnxList2.sort((a, b) => b.amount - a.amount);
+    }
+    let filteredTnxList3 = filteredTnxList2.sort((a, b) => {
+      const nameA = a.receiverName.toUpperCase();
+      const nameB = b.receiverName.toUpperCase();
+      if (state.nameSortFilter === 0) {
+        if (nameA < nameB) {
+          return -1;
+        }
+      } else if (state.nameSortFilter === 1) {
+        if (nameA > nameB) {
+          return -1;
+        }
+      }
+    });
+
+    setState({ filteredTransactionLists: filteredTnxList3 });
+  };
+
+  const cancelTransactions = (rgtn) => {
+    Swal.fire({
+      text: "Are you sure you want to cancel this transaction?",
+      showCancelButton: true,
+      denyButtonText: `Cancel`,
+      confirmButtonText: "Confirm",
+      confirmButtonColor: "#2dbe60",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const payload = {
+          recordToken: "",
+          reason: "",
+          clientId: "VIAMERICAS",
+          requestType: "CANCLTXN",
+          rgtn: rgtn,
+          userId: AuthReducer.userID,
+        };
+        setLoader((prevState) => prevState + 1);
+        hookCancelTransactions.sendRequest(payload, function (data) {
+          setLoader((prevState) => prevState - 1);
+          if (data.status == "S") {
+            notification.success({ message: data.message });
+            if (state.isStep === 2) {
+              setState({ isStep: 1 });
+            }
+            getTransactionList();
+          } else {
+            notification.error({
+              message: data.errorMessage ? data.errorMessage : "Cancel transaction failed.",
+            });
+          }
+        });
+      } else if (result.isDenied) {
+        Swal.fire("Changes are not saved", "", "info");
+      }
+    });
+  };
+  const getTransactionList = (isFav, bookingDateTo, bookingDateFrom) => {
+    let transactiondata = {
+      requestType: "TRANSACTIONLIST",
+      bookingDateFrom: bookingDateFrom,
+      favouriteFlag: isFav,
+      bookingDateTo: bookingDateTo,
+      recordsPerRequest: 100,
+      // recvNickName: state.nickName,
+      startIndex: -1,
+      status: "",
+      txnRefNo: "",
+      userId: AuthReducer.userID,
+    };
+    setLoader((prevState) => prevState + 1);
+    hookGetTransactionLists.sendRequest(transactiondata, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status == "S") {
+        setState({ transactionLists: data.responseData });
+        setState({ filteredTransactionLists: data.responseData });
+
+        // if (isFav == "1") {
+        //   // setState({ favouriteTransactionLists: data.responseData });
+        // } else {
+        //   setState({ transactionLists: data.responseData });
+        // }
+      } else {
+        notification.error({
+          message: data.errorMessage ? data.errorMessage : "Get transaction list failed.",
+        });
+      }
+    });
+  };
+  const transactionReceiptDetails = (txnRefNo) => {
+    const payload = {
+      requestType: "TXNDETAILS",
+      rgtn: "",
+      txnRefNo: txnRefNo,
+      userId: AuthReducer.userID,
+    };
+    setLoader((prevState) => prevState + 1);
+    hookTransactionReceiptDetails.sendRequest(payload, function (data) {
+      setLoader((prevState) => prevState - 1);
+      if (data.status == "S") {
+        setState({ txnReceiptDetail: data, isStep: 2 });
+        let recvName = data.receiverName.split(" ");
+        let recvFirstChar = recvName[0].charAt(0);
+        let recvLastChar = recvName[recvName.length - 1].charAt(0);
+        setState({ recvNameInitials: `${recvFirstChar}${recvLastChar}` });
+        // setState({
+        //   isStep: 6,
+        //   txnReceiptDetails: data,
+        // });
+      } else {
+        notification.error({
+          message: data.errorMessage ? data.errorMessage : "Transaction receipt details failed.",
+        });
+      }
+    });
+  };
+  const downloadPdf = () => {};
+  const bookingDateDiff = (record) => {
+    let diffTime = moment(new Date()).diff(new Date(record.bookingDate));
+
+    let duration = moment.duration(diffTime);
+    let asMinutes = duration.asMinutes();
+    return asMinutes;
+  };
+  const getDateLast7Day = () => {
+    setState({ dayfilter: 0 });
+    const today = new Date();
+    var SevenDaysAgo = new Date(new Date().setDate(today.getDate() - 7));
+    let last7DayDate = moment(SevenDaysAgo).format("DD-MM-YYYY");
+    let todayDate = moment(new Date()).format("DD-MM-YYYY");
+    let isFav = null;
+    getTransactionList(isFav, todayDate, last7DayDate);
+  };
+  const getDateLast30Day = () => {
+    setState({ dayfilter: 1 });
+    const today = new Date();
+    var SevenDaysAgo = new Date(new Date().setDate(today.getDate() - 30));
+    let last30DayDate = moment(SevenDaysAgo).format("DD-MM-YYYY");
+    let todayDate = moment(new Date()).format("DD-MM-YYYY");
+    let isFav = null;
+    getTransactionList(isFav, todayDate, last30DayDate);
+  };
+  const getDateLast6Month = () => {
+    setState({ dayfilter: 2 });
+    const today = new Date();
+    var sixMonthsAgo = new Date(new Date().setMonth(today.getMonth() - 6));
+    let sixMonthsAgoDate = moment(sixMonthsAgo).format("DD-MM-YYYY");
+    let todayDate = moment(new Date()).format("DD-MM-YYYY");
+    let isFav = null;
+    getTransactionList(isFav, todayDate, sixMonthsAgoDate);
+  };
+  return (
+    <Main>
+      <Spinner spinning={loader === 0 ? false : true}>
+        {state.isStep === 1 && (
+          <div className="container h-100">
+            <div className="row h-100 ">
+              <div className="col-lg-8 col-md-8 col-sm-12">
+                <div className="CR-default-box CR-max-width-100">
+                  {/* <ul className="row CR-side-space-top">
+                    <li className="back-arrow-nav d-xs-block d-done">
+                      <img src={BackArrow} alt="" />
+                    </li>
+                  </ul> */}
+                  <div className="CR-side-space">
+                    <ul className="row">
+                      <li className="col-md-12 col-sm-12 col-lg-12 mb-2">
+                        <h4 className="text-black CR-font-28 mb-1">Transactions</h4>
+                      </li>
+                      <li className="col-md-12 col-sm-12 col-lg-12 align-self-center mt-3">
+                        <div className="input-group search-input">
+                          <span className="position-absolute search-input-icon">
+                            <img src={Searchpng} width="24px" height="24px" />
+                          </span>
+                          <input
+                            onChange={(e) => {
+                              setState({ searchInputValue: e.target.value });
+                            }}
+                            className="CR-border-bottom form-control rounded-pill"
+                            type="input"
+                            placeholder="Search name"
+                          />
+                        </div>
+                      </li>
+                      <li className="col-md-12 col-sm-12 col-lg-12 align-self-center mt-3">
+                        <div className="w-100 ">
+                          <span
+                            className={
+                              state.filterCard === null
+                                ? "cr-keyword my-2 d-inline-block active"
+                                : "cr-keyword d-inline-block my-2"
+                            }
+                            onClick={() => {
+                              setState({ filterCard: null });
+                              getTransactionList();
+                            }}
+                          >
+                            All transactions
+                          </span>
+                          <span
+                            className={
+                              state.filterCard === 1
+                                ? "cr-keyword my-2 d-inline-block active"
+                                : "cr-keyword d-inline-block my-2"
+                            }
+                            onClick={() => {
+                              setState({
+                                filterCard: 1,
+                                durationFilter: null,
+                                amountSort: null,
+                                nameSortFilter: null,
+                              });
+                            }}
+                          >
+                            Filters
+                          </span>
+                          <span
+                            className={
+                              state.filterCard === 2
+                                ? "cr-keyword d-inline-block my-2 active"
+                                : "cr-keyword d-inline-block my-2"
+                            }
+                            onClick={() => {
+                              setState({ filterCard: 2, txnAmountFilter: null, dayfilter: null });
+                            }}
+                          >
+                            Sort By
+                          </span>
+                        </div>
+                      </li>
+                      <li className="col-md-12 col-sm-12 col-lg-12 align-self-center text-start">
+                        <div className="CR-separator w-100 mt-4"></div>
+                      </li>
+                    </ul>
+                    <ul className="row CR-side-space pt-3">
+                      <li className="col-md-12 col-sm-12 col-lg-12 mb-2 mt-1">
+                        <ul className="row">
+                          {state.filteredTransactionLists.map((transactionData) => {
+                            let transactionDate = moment(transactionData.bookingDate).format(
+                              "DD-MMMM-YYYY",
+                            );
+                            return (
+                              <>
+                                <li className="col-md-12 col-sm-12 col-lg-12 my-2">
+                                  <div className="d-flex flex-column single-box p-3 w-100">
+                                    <div className="d-flex align-items-start justify-content-between">
+                                      <label className="CR-font-14 CR-fw-500 mb-2">
+                                        {transactionDate}
+                                      </label>
+                                      <label className="CR-font-18 CR-black-text mb-2 d-flex align-items-center">
+                                        {bookingDateDiff(transactionData) <= 30 && (
+                                          <>
+                                            {transactionData.txnStatusCode !== "301" && (
+                                              <CancelIcon
+                                                color="error"
+                                                style={{ cursor: "pointer" }}
+                                                onClick={() =>
+                                                  cancelTransactions(transactionData.rgtn)
+                                                }
+                                              />
+                                            )}
+                                          </>
+                                        )}
+                                        &nbsp;&nbsp;
+                                        {transactionData.sendCurrencyCode}&nbsp;
+                                        <b>{transactionData.amount}</b>{" "}
+                                        <span
+                                          onClick={() => {
+                                            setState({ transactionData: transactionData });
+                                            transactionReceiptDetails(transactionData.txnRefNo);
+                                          }}
+                                          className=""
+                                        >
+                                          <img src={Chevronright} width="24px" height="24px" />
+                                        </span>
+                                      </label>
+                                    </div>
+                                    <div className="d-flex align-items-start justify-content-between">
+                                      <label className="CR-font-14 CR-fw-500 mb-2">
+                                        Folio Number
+                                      </label>
+                                      <label className="CR-font-18 CR-black-text mb-2 d-flex align-items-center">
+                                        <b>{transactionData?.viaFolioId}</b>
+                                      </label>
+                                    </div>
+                                    <div className="d-flex align-items-end justify-content-between">
+                                      <p className="CR-font-16 CR-black-text CR-fw-600 mb-0">
+                                        {transactionData.receiverName}
+                                      </p>
+                                      <span className="CR-status-pending">
+                                        {transactionData.txnStatus}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </li>
+                              </>
+                            );
+                          })}
+
+                          {/* <li className="col-md-12 col-sm-12 col-lg-12 my-2">
+                        <div className="d-flex flex-column single-box p-3 w-100">
+                          <div className="d-flex align-items-start justify-content-between">
+                            <label className="CR-font-14 CR-fw-500 mb-2">31 Aug 2021</label>
+                            <label className="CR-font-18 CR-black-text mb-2">
+                               USD <b>1,100</b>{" "}
+                              <span className="">
+                                <img src={Chevronright} width="24px" height="24px" />
+                              </span>
+                            </label>
+                          </div>
+                          <div className="d-flex align-items-end justify-content-between">
+                            <p className="CR-font-16 CR-black-text CR-fw-600 mb-0">
+                              Daisy Thomas Doe
+                            </p>
+                            <span className="CR-status-success">sent</span>
+                          </div>
+                        </div>
+                      </li>
+                      <li className="col-md-12 col-sm-12 col-lg-12 my-2">
+                        <div className="d-flex flex-column single-box p-3 w-100">
+                          <div className="d-flex align-items-start justify-content-between">
+                            <label className="CR-font-14 CR-fw-500 mb-2">31 Aug 2021</label>
+                            <label className="CR-font-18 CR-black-text mb-2">
+                               USD <b>1,100</b>{" "}
+                              <span className="">
+                                <img src={Chevronright} width="24px" height="24px" />
+                              </span>
+                            </label>
+                          </div>
+                          <div className="d-flex align-items-end justify-content-between">
+                            <p className="CR-font-16 CR-black-text CR-fw-600 mb-0">
+                              Daisy Thomas Doe
+                            </p>
+                            <span className="CR-status-pending">pending</span>
+                          </div>
+                        </div>
+                      </li> */}
+                        </ul>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="bottom_panel">
+                    <div className="d-flex justify-content-between align-items-baseline">
+                      <span className="Back_arrow" onClick={() => navigate("/new-transaction")}>
+                        <img src={BackArrow} alt="" />
+                        Back
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {state.filterCard && (
+                <div className="col-md-4 col-sm-12 col-lg-4 order-first order-md-last">
+                  {state.filterCard === 1 && (
+                    <div className="CR-otp-form">
+                      <ul className="CR-border-bottom mx-1 row ">
+                        <li className="col-md-12 col-sm-12 col-lg-12 px-0">
+                          <h4 className="CR-font-20 mb-2 mb-lg-4 mb-md-4 mt-4 mt-lg-0 mt-md-0 text-black">
+                            Filters
+                          </h4>
+                        </li>
+                        {/* <li className="col-md-12 col-sm-12 col-lg-12 px-0">
+                      <h5 className="CR-font-16 mb-3 mt-4 mt-lg-0 mt-md-0 text-black">
+                        Transaction status
+                      </h5>
+                    </li> */}
+                        {/* <li className="col-md-12 col-sm-12 col-lg-12 CR-side-space-bottom">
+                      <div className="w-100 d-flex justify-content-start align-items-center flex-wrap">
+                        <span
+                          className={
+                            state.txnStatusFilter === 0
+                              ? "cr-filters my-2 active"
+                              : "cr-filters my-2"
+                          }
+                          onClick={() => setState({ txnStatusFilter: 0 })}
+                        >
+                          All
+                        </span>
+                        <span
+                          className={
+                            state.txnStatusFilter === 1
+                              ? "cr-filters my-2 active"
+                              : "cr-filters my-2"
+                          }
+                          onClick={() => setState({ txnStatusFilter: 1 })}
+                        >
+                          Successful
+                        </span>
+                        <span
+                          className={
+                            state.txnStatusFilter === 2
+                              ? "cr-filters my-2 active"
+                              : "cr-filters my-2"
+                          }
+                          onClick={() => setState({ txnStatusFilter: 2 })}
+                        >
+                          Failed
+                        </span>
+                        <span
+                          className={
+                            state.txnStatusFilter === 3
+                              ? "cr-filters my-2 active"
+                              : "cr-filters my-2"
+                          }
+                          onClick={() => setState({ txnStatusFilter: 3 })}
+                        >
+                          Expired
+                        </span>
+                        <span
+                          className={
+                            state.txnStatusFilter === 4
+                              ? "cr-filters my-2 active"
+                              : "cr-filters my-2"
+                          }
+                          onClick={() => setState({ txnStatusFilter: 4 })}
+                        >
+                          Rejected
+                        </span>
+                        <span
+                          className={
+                            state.txnStatusFilter === 5
+                              ? "cr-filters my-2 active"
+                              : "cr-filters my-2"
+                          }
+                          onClick={() => setState({ txnStatusFilter: 5 })}
+                        >
+                          Pending
+                        </span>
+                      </div>
+                    </li> */}
+                      </ul>
+                      <ul className="CR-border-bottom mx-1 row">
+                        <li className="col-md-12 col-sm-12 col-lg-12 px-0">
+                          <h5 className="CR-font-16 mb-3 mt-4 mt-lg-0 mt-md-0 text-black">
+                            Transaction Amount
+                          </h5>
+                        </li>
+                        <li className="col-md-12 col-sm-12 col-lg-12 CR-side-space-bottom">
+                          <div className="w-100 d-flex justify-content-start align-items-center flex-wrap">
+                            <span
+                              className={
+                                state.txnAmountFilter === 0
+                                  ? "cr-filters my-2 active"
+                                  : "cr-filters my-2"
+                              }
+                              onClick={() => setState({ txnAmountFilter: 0 })}
+                            >
+                              Below USD 1000
+                            </span>
+                            <span
+                              className={
+                                state.txnAmountFilter === 1
+                                  ? "cr-filters my-2 active"
+                                  : "cr-filters my-2"
+                              }
+                              onClick={() => setState({ txnAmountFilter: 1 })}
+                            >
+                              Above USD 1000
+                            </span>
+                            <span
+                              className={
+                                state.txnAmountFilter === 2
+                                  ? "cr-filters my-2 active"
+                                  : "cr-filters my-2"
+                              }
+                              onClick={() => setState({ txnAmountFilter: 2 })}
+                            >
+                              Above USD 5000
+                            </span>
+                            <span
+                              className={
+                                state.txnAmountFilter === 3
+                                  ? "cr-filters my-2 active"
+                                  : "cr-filters my-2"
+                              }
+                              onClick={() => setState({ txnAmountFilter: 3 })}
+                            >
+                              Above USD 7000
+                            </span>
+                          </div>
+                        </li>
+                      </ul>
+                      <ul className="CR-border-bottom mx-1 row">
+                        <li className="col-md-12 col-sm-12 col-lg-12 px-0">
+                          <h5 className="CR-font-16 mb-3 mt-4 mt-lg-0 mt-md-0 text-black">Date</h5>
+                        </li>
+                        <li className="col-md-12 col-sm-12 col-lg-12 CR-side-space-bottom">
+                          <div className="w-100 d-flex justify-content-start align-items-center flex-wrap">
+                            <span
+                              className={
+                                state.dayfilter === 0 ? "cr-filters my-2 active" : "cr-filters my-2"
+                              }
+                              onClick={getDateLast7Day}
+                            >
+                              Last 7 days
+                            </span>
+                            <span
+                              className={
+                                state.dayfilter === 1 ? "cr-filters my-2 active" : "cr-filters my-2"
+                              }
+                              onClick={getDateLast30Day}
+                            >
+                              Last 30 days
+                            </span>
+                            <span
+                              className={
+                                state.dayfilter === 2 ? "cr-filters my-2 active" : "cr-filters my-2"
+                              }
+                              onClick={getDateLast6Month}
+                            >
+                              Last 6 months
+                            </span>
+                            {/* <span className={state.last7Day?"cr-filters my-2 active":"cr-filters my-2"}>2021</span> */}
+                          </div>
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* <!-- sort by --> */}
+                  {state.filterCard === 2 && (
+                    <div className="CR-otp-form">
+                      <ul className="CR-border-bottom mx-1 row ">
+                        <li className="col-md-12 col-sm-12 col-lg-12 px-0">
+                          <h4 className="CR-font-20 mb-2 mb-lg-4 mb-md-4 mt-4 mt-lg-0 mt-md-0 text-black">
+                            Sort by
+                          </h4>
+                        </li>
+                        <li className="col-md-12 col-sm-12 col-lg-12 px-0">
+                          <h5 className="CR-font-16 mb-3 mt-4 mt-lg-0 mt-md-0 text-black">
+                            Duration
+                          </h5>
+                        </li>
+                        <li className="col-md-12 col-sm-12 col-lg-12 CR-side-space-bottom">
+                          <div className="w-100 d-flex justify-content-start align-items-center flex-wrap">
+                            <span
+                              onClick={() => setState({ durationFilter: 0 })}
+                              className={
+                                state.durationFilter === 0
+                                  ? "cr-filters my-2 active"
+                                  : "cr-filters my-2"
+                              }
+                            >
+                              Newest to oldest
+                            </span>
+                            <span
+                              onClick={() => setState({ durationFilter: 1 })}
+                              className={
+                                state.durationFilter === 1
+                                  ? "cr-filters my-2 active"
+                                  : "cr-filters my-2"
+                              }
+                            >
+                              Oldest to newest
+                            </span>
+                          </div>
+                        </li>
+                      </ul>
+                      <ul className="CR-border-bottom mx-1 row">
+                        <li className="col-md-12 col-sm-12 col-lg-12 px-0">
+                          <h5 className="CR-font-16 mb-3 mt-4 mt-lg-0 mt-md-0 text-black">
+                            Transfer amount
+                          </h5>
+                        </li>
+                        <li className="col-md-12 col-sm-12 col-lg-12 CR-side-space-bottom">
+                          <div className="w-100 d-flex justify-content-start align-items-center flex-wrap">
+                            <span
+                              className={
+                                state.amountSort === 0
+                                  ? "cr-filters my-2 active"
+                                  : "cr-filters my-2"
+                              }
+                              onClick={() => setState({ amountSort: 0 })}
+                            >
+                              Low to high
+                            </span>
+                            <span
+                              className={
+                                state.amountSort === 1
+                                  ? "cr-filters my-2 active"
+                                  : "cr-filters my-2"
+                              }
+                              onClick={() => setState({ amountSort: 1 })}
+                            >
+                              High to low
+                            </span>
+                          </div>
+                        </li>
+                      </ul>
+                      <ul className="CR-border-bottom mx-1 row">
+                        <li className="col-md-12 col-sm-12 col-lg-12 px-0">
+                          <h5 className="CR-font-16 mb-3 mt-4 mt-lg-0 mt-md-0 text-black">
+                            Beneficiary name
+                          </h5>
+                        </li>
+                        <li className="col-md-12 col-sm-12 col-lg-12 CR-side-space-bottom">
+                          <div className="w-100 d-flex justify-content-start align-items-center flex-wrap">
+                            <span
+                              className={
+                                state.nameSortFilter === 0
+                                  ? "cr-filters my-2 active"
+                                  : "cr-filters my-2"
+                              }
+                              onClick={() => setState({ nameSortFilter: 0 })}
+                            >
+                              Ascending (A-Z)
+                            </span>
+                            <span
+                              className={
+                                state.nameSortFilter === 1
+                                  ? "cr-filters my-2 active"
+                                  : "cr-filters my-2"
+                              }
+                              onClick={() => setState({ nameSortFilter: 1 })}
+                            >
+                              Descending (Z-A)
+                            </span>
+                          </div>
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {state.isStep === 2 && (
+          <>
+            {/* <C2RInvoice pdfRef={pdfRef} txnReceiptDetail={state.txnReceiptDetail} /> */}
+
+            <div className="container h-100">
+              <div className="row h-100 justify-content-center">
+                <div
+                  className="align-self-center col-lg-7 col-md-7 col-sm-12 "
+                  style={{ marginRight: "auto" }}
+                >
+                  <div></div>
+                  <div className="CR-default-box CR-max-width-620">
+                    <ul className="row CR-side-space">
+                      <div className="d-flex justify-content-start">
+                        <h2 className="text-black text-center">Transaction Details</h2>
+                      </div>
+                      <li className="text-center">
+                        {/* <img src={PaymentSuccess} style={{ marginBottom: "30px" }} alt="" /> */}
+                      </li>
+                      {/* <li className="col-md-12 col-sm-12 col-lg-12 mb-4">
+                        <h4 className="text-black text-center">Transactions</h4>
+                      </li> */}
+                      <li className="d-flex justify-content-end">
+                        <div className="d-flex gap-4">
+                          {/* <img width={23} height={23} src={share} alt="share" /> */}
+                          <PDFDownloadLink document={<PDFFile />} filename="C2R">
+                            {({ loading }) =>
+                              loading ? (
+                                <button>Lodinag....</button>
+                              ) : (
+                                <img
+                                  onClick={downloadPdf}
+                                  style={{ cursor: "pointer" }}
+                                  width={23}
+                                  height={23}
+                                  src={downloadBtn}
+                                  alt="download-btn"
+                                />
+                              )
+                            }
+                          </PDFDownloadLink>
+                          ;
+                        </div>
+                        {/* <button
+                          type="button"
+                          onClick={downloadPdf}
+                          className="text-black text-center"
+                        >
+                          download
+                        </button> */}
+                      </li>
+                      <li className="text-center col-md-12 col-sm-12 col-lg-12 d-flex justify-content-center">
+                        <div className="user-initials-icon">{state.recvNameInitials}</div>
+                      </li>
+                      <li className="col-md-12 col-sm-12 col-lg-12  d-flex justify-content-center">
+                        {/* &nbsp;
+                        <h2
+                          style={{ fontSize: "32px", fontWeight: "700px" }}
+                        >xxxxxx</h2> */}
+                      </li>
+                      <p
+                        className="text-black text-center m-0"
+                        style={{ font: "bold", fontSize: "28px", opacity: "0.87" }}
+                      >
+                        {state.txnReceiptDetail.receiverName}
+                      </p>
+                      {/* <li className="col-md-12 col-sm-12 col-lg-12 mt-3"> */}
+                      <h4 className="text-black text-center">
+                        {` ${state.txnReceiptDetail.sendCountry.split("-")[1]} ${
+                          state.txnReceiptDetail.sendAmount
+                        } `}
+                      </h4>
+                      {/* </li> */}
+                      <li className="text-center">
+                        <img src={securekotak} style={{ marginBottom: "30px" }} alt="" />
+                      </li>
+                      <li className="col-md-12 col-sm-12 col-lg-12 my-3">
+                        <div className="align-items-center d-flex justify-content-between CR-border-bottom">
+                          <label className="CR-font-16 text-left">Folio Number</label>
+                          <p className="CR-font-16 text-right CR-black-text CR-fw-600">
+                            {state.txnReceiptDetail.viaFolio == "0"
+                              ? ""
+                              : state.txnReceiptDetail.viaFolio}
+                          </p>
+                        </div>
+                      </li>
+                      <li className="col-md-12 col-sm-12 col-lg-12 my-3">
+                        <div className="align-items-center d-flex justify-content-between CR-border-bottom">
+                          <label className="CR-font-16 text-left">Transaction status</label>
+                          <p className="CR-font-16 text-right CR-black-text CR-fw-600">
+                            {state.txnReceiptDetail.transactionStatus}
+                          </p>
+                        </div>
+                      </li>
+                      <li className="col-md-12 col-sm-12 col-lg-12 my-3">
+                        <div className="align-items-center d-flex justify-content-between CR-border-bottom">
+                          <label className="CR-font-16 text-left">Transaction ID</label>
+                          <p className="CR-font-16 text-right CR-black-text CR-fw-600">
+                            {state.txnReceiptDetail.txnRefNumber}
+                          </p>
+                        </div>
+                      </li>
+                      <li className="col-md-12 col-sm-12 col-lg-12 my-3">
+                        <div className="align-items-center d-flex justify-content-between CR-border-bottom">
+                          <label className="CR-font-16 text-left">Created on</label>
+                          <p className="CR-font-16 text-right CR-black-text CR-fw-600">
+                            {moment(state.txnReceiptDetail.bookingDate).format(
+                              "DD-MMM-YYYY, HH:mm A",
+                            )}
+                          </p>
+                        </div>
+                      </li>
+                      <li className="col-md-12 col-sm-12 col-lg-12 my-3">
+                        <div className="align-items-center d-flex justify-content-between CR-border-bottom">
+                          <label className="CR-font-16 text-left">Transfer fees</label>
+                          <p className="CR-font-16 text-right CR-black-text CR-fw-600">
+                            {`${state.txnReceiptDetail.sendCountry.split("-")[1]} ${
+                              state.txnReceiptDetail.transaferFee
+                            }`}
+                          </p>
+                        </div>
+                      </li>
+                      <li className="col-md-12 col-sm-12 col-lg-12 my-3">
+                        <div className="align-items-center d-flex justify-content-between CR-border-bottom">
+                          <label className="CR-font-16 text-left">Total transferred</label>
+                          <p className="CR-font-16 text-right CR-black-text CR-fw-600">
+                            {`${state.txnReceiptDetail.sendCountry.split("-")[1]} ${
+                              state.txnReceiptDetail.sendAmount
+                            }`}
+                          </p>
+                        </div>
+                      </li>
+                    </ul>
+                    <div className="p-4 text-center proceedbtnwidth">
+                      <Row>
+                        <Col md={6} className="mb-md-0 mb-3">
+                          {bookingDateDiff(state.transactionData) <= 30 ? (
+                            <>
+                              {state.transactionData.txnStatusCode !== "301" ? (
+                                <button
+                                  className="CR-primary-btn"
+                                  onClick={() => cancelTransactions(state.transactionData.rgtn)}
+                                >
+                                  Cancel
+                                </button>
+                              ) : (
+                                <button
+                                  className="CR-primary-btn"
+                                  onClick={() => setState({ isStep: 1 })}
+                                >
+                                  Back
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <button
+                              className="CR-primary-btn"
+                              onClick={() => setState({ isStep: 1 })}
+                            >
+                              Back
+                            </button>
+                          )}
+                        </Col>
+                        <Col md={6}>
+                          <button
+                            className="CR-primary-btn mb-3"
+                            onClick={() => navigate("/new-transaction")}
+                          >
+                            Send Money
+                          </button>
+                        </Col>
+                      </Row>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </Spinner>
+    </Main>
+  );
+};
+
+export default Transactions;
